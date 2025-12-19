@@ -1,0 +1,116 @@
+from phoenix6.hardware import Pigeon2
+from wpilib import DriverStation
+from wpimath import units
+from wpimath.geometry import Pose2d
+from choreo.trajectory import SwerveSample
+from magicbot import StateMachine, will_reset_to
+from magicbot.state_machine import state
+
+from components.swerve_drive import SwerveDrive
+
+
+class DriveControl(StateMachine):
+    swerve_drive: SwerveDrive
+
+    pigeon: Pigeon2
+
+    go_to_pose = will_reset_to(False)
+    desired_pose = Pose2d()
+    period: units.seconds = 0.02
+    drive_auto_man = will_reset_to(False)
+    translationX = will_reset_to(0)
+    translationY = will_reset_to(0)
+    rotationX = will_reset_to(0)
+    drive_sysid = will_reset_to(False)
+    sysid_volts = will_reset_to(0.0)
+    sample: SwerveSample = None
+
+    def drive_manual(
+        self,
+        translationX: units.meters_per_second,
+        translationY: units.meters_per_second,
+        rotationX: units.radians_per_second,
+        field_relative: bool,
+    ):
+        if self.current_state == "free":
+            self.translationX = translationX
+            self.translationY = translationY
+            self.rotationX = rotationX
+            self.field_relative = field_relative
+
+    def drive_sysid_manual(
+        self,
+        volts: float,
+    ):
+        self.drive_sysid = True
+        self.sysid_volts = volts
+
+    def request_pose(self, pose: Pose2d):
+        self.go_to_pose = True
+        self.desired_pose = pose
+
+    def drive_auto(self, sample: SwerveSample = None):
+        self.sample = sample
+
+    def drive_auto_manual(
+        self,
+        translationX: units.meters_per_second,
+        translationY: units.meters_per_second,
+        rotationX: units.radians_per_second,
+        field_relative: bool,
+    ):
+
+        self.translationX = translationX
+        self.translationY = translationY
+        self.rotationX = rotationX
+        self.field_relative = field_relative
+        self.drive_auto_man = True
+
+    @state(first=True)
+    def initialise(self):
+        self.translationX = 0
+        self.translationY = 0
+        self.rotationX = 0
+        self.field_relative = False
+        if self.go_to_pose:
+            self.next_state("going_to_pose")
+        if DriverStation.isAutonomousEnabled():
+            self.next_state("run_auton_routine")
+        self.next_state("free")
+
+    @state
+    def free(self):
+        self.swerve_drive.drive(
+            self.translationX,
+            self.translationY,
+            self.rotationX,
+            self.field_relative,
+            self.period,
+        )
+        if DriverStation.isAutonomousEnabled():
+            self.next_state("run_auton_routine")
+        if self.go_to_pose:
+            self.next_state("going_to_pose")
+        if self.drive_sysid:
+            self.next_state("drive_sysid_state")
+
+    @state
+    def drive_sysid_state(self):
+        if not self.drive_sysid:
+            self.next_state("free")
+        self.swerve_drive.sysid_drive(self.sysid_volts)
+
+    @state
+    def going_to_pose(self):
+        if not self.go_to_pose:
+            self.next_state("free")
+        self.swerve_drive.set_desired_pose(self.desired_pose)
+
+    @state
+    def run_auton_routine(self):
+        # used to drive the bot and used here to keep driving in one place
+        # main controls are in the auto_base.py like intake eject etc
+        if self.sample is not None:
+            self.swerve_drive.follow_trajectory(self.sample)
+        if DriverStation.isTeleop():
+            self.next_state("free")
