@@ -64,14 +64,14 @@ class SwerveWheel:
         self.speed_current_limit_configs.stator_current_limit = self.speed_amps
 
         self.cancoder_config.magnet_sensor.sensor_direction = (
-            SensorDirectionValue.COUNTER_CLOCKWISE_POSITIVE
+            SensorDirectionValue.CLOCKWISE_POSITIVE
         )
 
         self.motor_configs.feedback.feedback_remote_sensor_id = self.cancoder.device_id
         self.motor_configs.feedback.feedback_sensor_source = (
-            FeedbackSensorSourceValue.FUSED_CANCODER
+            FeedbackSensorSourceValue.REMOTE_CANCODER
         )
-        self.motor_configs.feedback.sensor_to_mechanism_ratio = 1.0
+        # self.motor_configs.feedback.sensor_to_mechanism_ratio = 1.0
         self.motor_configs.feedback.rotor_to_sensor_ratio = self.direction_gear_ratio
 
         self.motor_configs.motor_output.neutral_mode = NeutralModeValue.BRAKE
@@ -173,8 +173,10 @@ class SwerveWheel:
         # convert speed from m/s to r/s
         state.speed *= self.drive_gear_ratio / (self.wheel_radius * 2 * math.pi)
 
-        self.speed_motor.set_control(controls.VelocityTorqueCurrentFOC(state.speed))
+        
+
+        self.speed_motor.set_control(controls.VelocityTorqueCurrentFOC(state.speed).with_slot(0))
 
         self.direction_motor.set_control(
-            controls.PositionTorqueCurrentFOC(state.angle.radians())
+            controls.PositionTorqueCurrentFOC(state.angle.radians()).with_slot(0)
         )

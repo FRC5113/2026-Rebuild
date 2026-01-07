@@ -10,6 +10,7 @@ from wpilib import (
 from wpilib import RobotController
 
 from wpimath import units
+from wpimath.filter import SlewRateLimiter
 
 
 from phoenix6.hardware import CANcoder, TalonFX, Pigeon2
@@ -62,8 +63,6 @@ class MyRobot(LemonRobot):
         """
 
         self.canicore_canbus = CANBus("can0")
-        self.ctre_canbus = CANBus.system_core(0)
-        self.rev_canbus = 0
 
         """
         SWERVE
@@ -118,10 +117,6 @@ class MyRobot(LemonRobot):
                 "kS": 0.14,
                 "kV": 0.375,
                 "kA": 0.0,
-                "kMaxV": 400.0,
-                "kMaxA": 4000.0,
-                "kMinInput": -math.pi,
-                "kMaxInput": math.pi,
             },
             (not self.low_bandwidth) and self.tuning_enabled,
         )
@@ -168,7 +163,7 @@ class MyRobot(LemonRobot):
                 "Low Bandwidth Mode is active! Tuning is disabled.", AlertType.INFO
             )
 
-        self.pdh = PowerDistribution(self.rev_canbus)
+        self.pdh = PowerDistribution()
 
         self.estimated_field = Field2d()
 
@@ -188,14 +183,14 @@ class MyRobot(LemonRobot):
         self.primary = LemonInput(0, "PS5")
         self.secondary = LemonInput(1, "Xbox")
 
-        self.x_filter = AsymmetricSlewLimiter(
-            self.rasing_slew_rate, self.falling_slew_rate
+        self.x_filter = SlewRateLimiter(
+            self.rasing_slew_rate#, self.falling_slew_rate
         )
-        self.y_filter = AsymmetricSlewLimiter(
-            self.rasing_slew_rate, self.falling_slew_rate
+        self.y_filter = SlewRateLimiter(
+            self.rasing_slew_rate#, self.falling_slew_rate
         )
-        self.theta_filter = AsymmetricSlewLimiter(
-            self.rasing_slew_rate, self.falling_slew_rate
+        self.theta_filter = SlewRateLimiter(
+            self.rasing_slew_rate#, self.falling_slew_rate
         )
 
     def teleopPeriodic(self):
@@ -213,10 +208,10 @@ class MyRobot(LemonRobot):
 
             self.drive_control.drive_manual(
                 self.x_filter.calculate(
-                    self.sammi_curve(self.primary.getLeftY()) * mult * self.top_speed
+                    self.sammi_curve(self.primary.getPovX()) * mult * self.top_speed
                 ),
                 self.y_filter.calculate(
-                    self.sammi_curve(self.primary.getLeftX()) * mult * self.top_speed
+                    self.sammi_curve(self.primary.getPovY()) * mult * self.top_speed
                 ),
                 self.theta_filter.calculate(
                     -self.sammi_curve(self.primary.getRightX())

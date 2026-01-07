@@ -105,6 +105,25 @@ class SwerveDrive(Sendable):
         self.pigeon_alert = Alert(
             "Pigeon heading has been reset.", AlertType.INFO, timeout=3.0
         )
+        # self.pigeon.set_yaw(180)
+        # self.pigeon.reset()
+
+        # config = RobotConfig.fromGUISettings()
+
+        # # Configure the AutoBuilder last
+        # AutoBuilder.configure(
+        #     self.get_estimated_pose(), # Robot pose supplier
+        #     self.resetPose, # Method to reset odometry (will be called if your auto has a starting pose)
+        #     self.chassis_speeds, # ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
+        #     lambda speeds, feedforwards: self.driveRobotRelative(speeds), # Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds. Also outputs individual module feedforwards
+        #     PPHolonomicDriveController( # PPHolonomicController is the built in path following controller for holonomic drive trains
+        #         PIDConstants(5.0, 0.0, 0.0), # Translation PID constants
+        #         PIDConstants(5.0, 0.0, 0.0) # Rotation PID constants
+        #     ),
+        #     config, # The robot configuration
+        #     self.shouldFlipPath, # Supplier to control path flipping based on alliance color
+        #     self # Reference to this subsystem to set requirements
+        # )
 
     def initSendable(self, builder: SendableBuilder) -> None:
         builder.setSmartDashboardType("SwerveDrive")
@@ -368,25 +387,22 @@ class SwerveDrive(Sendable):
                 return
             self.chassis_speeds = ChassisSpeeds.discretize(
                 (
-                    ChassisSpeeds(
-                        self.translationX, self.translationY, self.rotationX
-                    ).toFieldRelative(
+                    ChassisSpeeds.fromFieldRelativeSpeeds(
+                        self.translationX,
+                        self.translationY,
+                        self.rotationX,
                         self.pigeon.getRotation2d() + self.pigeon_offset,
                     )
                     if self.field_relative
-                    else ChassisSpeeds(
-                        self.translationX, self.translationY, self.rotationX
-                    ).toFieldRelative(
+                    else ChassisSpeeds.fromFieldRelativeSpeeds(
+                        self.translationX,
+                        self.translationY,
+                        self.rotationX,
                         Rotation2d(),
                     )
                 ),
                 self.period,
             )
-        if self.doing_sysid:
-            self.front_left.setVoltageOnly(self.sysid_volts)
-            self.front_right.setVoltageOnly(self.sysid_volts)
-            self.rear_left.setVoltageOnly(self.sysid_volts)
-            self.rear_right.setVoltageOnly(self.sysid_volts)
         self.swerve_module_states = self.kinematics.toSwerveModuleStates(
             self.chassis_speeds
         )
