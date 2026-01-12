@@ -8,10 +8,11 @@ from wpilib import (
     PowerDistribution,
 )
 from wpilib import RobotController
+from robotpy_apriltag import AprilTagField, AprilTagFieldLayout
 
 from wpimath import units
 from wpimath.filter import SlewRateLimiter
-
+from wpimath.geometry import Transform3d, Rotation3d
 
 from phoenix6.hardware import CANcoder, TalonFX, Pigeon2
 from phoenix6 import CANBus
@@ -25,7 +26,7 @@ from lemonlib.util import (
     AlertType,
 )
 from lemonlib.smart import SmartPreference, SmartProfile
-from lemonlib import LemonRobot
+from lemonlib import LemonRobot, LemonCamera
 from lemonlib.util import AsymmetricSlewLimiter
 
 from autonomous.auto_base import AutoBase
@@ -69,25 +70,25 @@ class MyRobot(LemonRobot):
         """
 
         # hardware
-        self.front_left_speed_motor = TalonFX(21, self.canicore_canbus)
-        self.front_left_direction_motor = TalonFX(22, self.canicore_canbus)
-        self.front_left_cancoder = CANcoder(23, self.canicore_canbus)
+        self.front_left_speed_motor = TalonFX(11, self.canicore_canbus)
+        self.front_left_direction_motor = TalonFX(12, self.canicore_canbus)
+        self.front_left_cancoder = CANcoder(13, self.canicore_canbus)
 
-        self.front_right_speed_motor = TalonFX(31, self.canicore_canbus)
-        self.front_right_direction_motor = TalonFX(32, self.canicore_canbus)
-        self.front_right_cancoder = CANcoder(33, self.canicore_canbus)
+        self.front_right_speed_motor = TalonFX(21, self.canicore_canbus)
+        self.front_right_direction_motor = TalonFX(22, self.canicore_canbus)
+        self.front_right_cancoder = CANcoder(23, self.canicore_canbus)
 
-        self.rear_left_speed_motor = TalonFX(11, self.canicore_canbus)
-        self.rear_left_direction_motor = TalonFX(12, self.canicore_canbus)
-        self.rear_left_cancoder = CANcoder(13, self.canicore_canbus)
+        self.rear_left_speed_motor = TalonFX(41, self.canicore_canbus)
+        self.rear_left_direction_motor = TalonFX(42, self.canicore_canbus)
+        self.rear_left_cancoder = CANcoder(43, self.canicore_canbus)
 
-        self.rear_right_speed_motor = TalonFX(41, self.canicore_canbus)
-        self.rear_right_direction_motor = TalonFX(42, self.canicore_canbus)
-        self.rear_right_cancoder = CANcoder(43, self.canicore_canbus)
+        self.rear_right_speed_motor = TalonFX(31, self.canicore_canbus)
+        self.rear_right_direction_motor = TalonFX(32, self.canicore_canbus)
+        self.rear_right_cancoder = CANcoder(33, self.canicore_canbus)
 
         # physical constants
-        self.offset_x: units.meters = 0.381
-        self.offset_y: units.meters = 0.381
+        self.offset_x: units.meters = 0.3175
+        self.offset_y: units.meters = 0.3175
         self.drive_gear_ratio = 6.75
         self.direction_gear_ratio = 150 / 7
         self.wheel_radius: units.meters = 0.0508
@@ -102,20 +103,20 @@ class MyRobot(LemonRobot):
                 "kP": 0.0,
                 "kI": 0.0,
                 "kD": 0.0,
-                "kS": 0.17,
-                "kV": 0.104,
-                "kA": 0.01,
+                "kS": 0.0,
+                "kV": 0.0,
+                "kA": 0.0,
             },
             (not self.low_bandwidth) and self.tuning_enabled,
         )
         self.direction_profile = SmartProfile(
             "direction",
             {
-                "kP": 3.0,
+                "kP": 0.0,
                 "kI": 0.0,
                 "kD": 0.0,
-                "kS": 0.14,
-                "kV": 0.375,
+                "kS": 0.0,
+                "kV": 0.0,
                 "kA": 0.0,
             },
             (not self.low_bandwidth) and self.tuning_enabled,
@@ -167,6 +168,16 @@ class MyRobot(LemonRobot):
 
         self.estimated_field = Field2d()
 
+        self.field_layout = AprilTagFieldLayout.loadField(
+            AprilTagField.kDefaultField
+        )
+
+        self.robot_to_camera_front = Transform3d(0.0, 0.0, 0.0, Rotation3d())
+
+        self.camera_front = LemonCamera(
+            "Global_Shutter_Camera", self.robot_to_camera_front, self.field_layout
+        )
+
         if DriverStation.getAlliance() == DriverStation.Alliance.kRed:
             self.alliance = True
         else:
@@ -181,7 +192,6 @@ class MyRobot(LemonRobot):
     def teleopInit(self):
         # initialize HIDs here in case they are changed after robot initializes
         self.primary = LemonInput(0, "PS5")
-        self.secondary = LemonInput(1, "Xbox")
 
         self.x_filter = SlewRateLimiter(
             self.rasing_slew_rate#, self.falling_slew_rate

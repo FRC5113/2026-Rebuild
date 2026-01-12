@@ -105,25 +105,7 @@ class SwerveDrive(Sendable):
         self.pigeon_alert = Alert(
             "Pigeon heading has been reset.", AlertType.INFO, timeout=3.0
         )
-        # self.pigeon.set_yaw(180)
-        # self.pigeon.reset()
 
-        # config = RobotConfig.fromGUISettings()
-
-        # # Configure the AutoBuilder last
-        # AutoBuilder.configure(
-        #     self.get_estimated_pose(), # Robot pose supplier
-        #     self.resetPose, # Method to reset odometry (will be called if your auto has a starting pose)
-        #     self.chassis_speeds, # ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
-        #     lambda speeds, feedforwards: self.driveRobotRelative(speeds), # Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds. Also outputs individual module feedforwards
-        #     PPHolonomicDriveController( # PPHolonomicController is the built in path following controller for holonomic drive trains
-        #         PIDConstants(5.0, 0.0, 0.0), # Translation PID constants
-        #         PIDConstants(5.0, 0.0, 0.0) # Rotation PID constants
-        #     ),
-        #     config, # The robot configuration
-        #     self.shouldFlipPath, # Supplier to control path flipping based on alliance color
-        #     self # Reference to this subsystem to set requirements
-        # )
 
     def initSendable(self, builder: SendableBuilder) -> None:
         builder.setSmartDashboardType("SwerveDrive")
@@ -256,7 +238,7 @@ class SwerveDrive(Sendable):
         # self.pigeon.reset()
         self.pigeon_alert.enable()
 
-    def add_vision_measurement(self, pose: Pose2d, timestamp: units.seconds):
+    def addVisionPoseEstimate(self, pose: Pose2d, timestamp: units.seconds):
         self.pose_estimator.addVisionMeasurement(pose, timestamp)
 
     def set_pigeon_offset(self, offset: units.degrees):
@@ -275,7 +257,7 @@ class SwerveDrive(Sendable):
             sample.vy + holospeeds.vy,
             sample.omega + holospeeds.omega,
         )
-        self.drive(-speeds.vx, -speeds.vy, -speeds.omega, False, self.period)
+        self.drive(speeds.vx, speeds.vy, speeds.omega, False, self.period)
 
     def point_towards(self, rightX: float, rightY: float):
         moved = abs(rightX) > 0.1 or abs(rightY) > 0.1
