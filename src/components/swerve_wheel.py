@@ -173,9 +173,9 @@ class SwerveWheel:
         # convert speed from m/s to r/s
         state.speed *= self.drive_gear_ratio / (self.wheel_radius * 2 * math.pi)
 
-        
-
-        self.speed_motor.set_control(controls.VelocityTorqueCurrentFOC(state.speed).with_slot(0))
+        self.speed_motor.set_control(
+            controls.VelocityTorqueCurrentFOC(state.speed).with_slot(0)
+        )
 
         self.direction_motor.set_control(
             controls.PositionTorqueCurrentFOC(state.angle.radians()).with_slot(0)

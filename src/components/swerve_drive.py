@@ -106,7 +106,6 @@ class SwerveDrive(Sendable):
             "Pigeon heading has been reset.", AlertType.INFO, timeout=3.0
         )
 
-
     def initSendable(self, builder: SendableBuilder) -> None:
         builder.setSmartDashboardType("SwerveDrive")
         builder.addDoubleProperty(

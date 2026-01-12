@@ -168,9 +168,7 @@ class MyRobot(LemonRobot):
 
         self.estimated_field = Field2d()
 
-        self.field_layout = AprilTagFieldLayout.loadField(
-            AprilTagField.kDefaultField
-        )
+        self.field_layout = AprilTagFieldLayout.loadField(AprilTagField.kDefaultField)
 
         self.robot_to_camera_front = Transform3d(0.0, 0.0, 0.0, Rotation3d())
 
@@ -194,13 +192,13 @@ class MyRobot(LemonRobot):
         self.primary = LemonInput(0, "PS5")
 
         self.x_filter = SlewRateLimiter(
-            self.rasing_slew_rate#, self.falling_slew_rate
+            self.rasing_slew_rate  # , self.falling_slew_rate
         )
         self.y_filter = SlewRateLimiter(
-            self.rasing_slew_rate#, self.falling_slew_rate
+            self.rasing_slew_rate  # , self.falling_slew_rate
         )
         self.theta_filter = SlewRateLimiter(
-            self.rasing_slew_rate#, self.falling_slew_rate
+            self.rasing_slew_rate  # , self.falling_slew_rate
         )
 
     def teleopPeriodic(self):

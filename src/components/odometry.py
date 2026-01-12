@@ -26,9 +26,13 @@ class Odometry:
 
     def execute(self):
         for result in self.camera_front.getAllUnreadResults():
-            camEstPose = self.camera_pose_estimator_front.estimateCoprocMultiTagPose(result)
+            camEstPose = self.camera_pose_estimator_front.estimateCoprocMultiTagPose(
+                result
+            )
             if camEstPose is None:
-                camEstPose = self.camera_pose_estimator_front.estimateLowestAmbiguityPose(result)
+                camEstPose = (
+                    self.camera_pose_estimator_front.estimateLowestAmbiguityPose(result)
+                )
 
             self.swerve_drive.addVisionPoseEstimate(
                 camEstPose.estimatedPose, camEstPose.timestampSeconds
