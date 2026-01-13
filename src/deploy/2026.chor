@@ -1,0 +1,113 @@
+{
+ "name":"2026",
+ "version":2,
+ "type":"Swerve",
+ "variables":{
+  "expressions":{},
+  "poses":{
+   "climber":{
+    "x":{
+     "exp":"1.5 m",
+     "val":1.5
+    },
+    "y":{
+     "exp":"3.745 m",
+     "val":3.745
+    },
+    "heading":{
+     "exp":"0 rad",
+     "val":0.0
+    }
+   },
+   "hubfront":{
+    "x":{
+     "exp":"3.5 m",
+     "val":3.5
+    },
+    "y":{
+     "exp":"4.035 m",
+     "val":4.035
+    },
+    "heading":{
+     "exp":"180 degrees",
+     "val":3.141592653589793
+    }
+   }
+  }
+ },
+ "config":{
+  "frontLeft":{
+   "x":{
+    "exp":"13 in",
+    "val":0.3302
+   },
+   "y":{
+    "exp":"13 in",
+    "val":0.3302
+   }
+  },
+  "backLeft":{
+   "x":{
+    "exp":"-13 in",
+    "val":-0.3302
+   },
+   "y":{
+    "exp":"13 in",
+    "val":0.3302
+   }
+  },
+  "mass":{
+   "exp":"50 lbs",
+   "val":22.6796185
+  },
+  "inertia":{
+   "exp":"6 kg m ^ 2",
+   "val":6.0
+  },
+  "gearing":{
+   "exp":"6.75",
+   "val":6.75
+  },
+  "radius":{
+   "exp":"2 in",
+   "val":0.0508
+  },
+  "vmax":{
+   "exp":"6000 RPM",
+   "val":628.3185307179587
+  },
+  "tmax":{
+   "exp":"9.37 N * m",
+   "val":9.37
+  },
+  "cof":{
+   "exp":"1.542",
+   "val":1.542
+  },
+  "bumper":{
+   "front":{
+    "exp":"16 in",
+    "val":0.4064
+   },
+   "side":{
+    "exp":"16 in",
+    "val":0.4064
+   },
+   "back":{
+    "exp":"16 in",
+    "val":0.4064
+   }
+  },
+  "differentialTrackWidth":{
+   "exp":"22 in",
+   "val":0.5588
+  }
+ },
+ "generationFeatures":[],
+ "codegen":{
+  "root":"home/ryan/Documents/2026-Rebuild/src",
+  "genVars":true,
+  "genTrajData":true,
+  "useChoreoLib":true
+ }
+}

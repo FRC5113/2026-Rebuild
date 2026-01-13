@@ -245,16 +245,12 @@ class SwerveDrive(Sendable):
         self.pigeon_offset = Rotation2d.fromDegrees(offset)
 
     def follow_trajectory(self, sample: SwerveSample):
-        holospeeds = self.holonomic_controller.calculate(
-            self.get_estimated_pose(),
-            sample.get_pose(),
-            0.0,
-            sample.get_pose().rotation(),
-        )
+        pose = self.get_estimated_pose()
+
         speeds = ChassisSpeeds(
-            sample.vx + holospeeds.vx,
-            sample.vy + holospeeds.vy,
-            sample.omega + holospeeds.omega,
+            sample.vx + self.x_controller.calculate(pose.X(), sample.x),
+            sample.vy + self.y_controller.calculate(pose.Y(), sample.y),
+            sample.omega + self.theta_controller.calculate(pose.rotation().radians(), sample.heading),
         )
         self.drive(speeds.vx, speeds.vy, speeds.omega, False, self.period)
 
