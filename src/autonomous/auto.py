@@ -5,7 +5,7 @@ from autonomous.auto_base import AutoBase
 
 """
 Trajectories:
-
+- climb
 """
 
 """
@@ -14,13 +14,12 @@ States:
 """
 
 
-# class state_test(AutoBase):
-#     MODE_NAME = "state-test"
+class state_test(AutoBase):
+    MODE_NAME = "state-test"
 
-#     def __init__(self):
-#         super().__init__(
-#             [
-#                 "test-traj",
-#                 "state:level_four",
-#             ]
-#         )
+    def __init__(self):
+        super().__init__(
+            [
+                "climb",
+            ]
+        )

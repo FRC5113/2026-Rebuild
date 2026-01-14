@@ -250,7 +250,10 @@ class SwerveDrive(Sendable):
         speeds = ChassisSpeeds(
             sample.vx + self.x_controller.calculate(pose.X(), sample.x),
             sample.vy + self.y_controller.calculate(pose.Y(), sample.y),
-            sample.omega + self.theta_controller.calculate(pose.rotation().radians(), sample.heading),
+            sample.omega
+            + self.theta_controller.calculate(
+                pose.rotation().radians(), sample.heading
+            ),
         )
         self.drive(speeds.vx, speeds.vy, speeds.omega, False, self.period)
 

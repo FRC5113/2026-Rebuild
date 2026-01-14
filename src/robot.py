@@ -1,4 +1,5 @@
 import math
+from pathlib import Path
 
 import wpilib
 from wpilib import (
@@ -7,7 +8,7 @@ from wpilib import (
     DriverStation,
     PowerDistribution,
 )
-from wpilib import RobotController
+from wpilib import RobotController, SmartDashboard
 from robotpy_apriltag import AprilTagField, AprilTagFieldLayout
 
 from wpimath import units
@@ -34,11 +35,13 @@ from components.swerve_drive import SwerveDrive
 from components.swerve_wheel import SwerveWheel
 from components.drive_control import DriveControl
 from components.sysid_drive import SysIdDriveLinear
+from components.odometry import Odometry
 
 
 class MyRobot(LemonRobot):
     sysid_drive: SysIdDriveLinear
     drive_control: DriveControl
+    odometry: Odometry
 
     swerve_drive: SwerveDrive
     front_left: SwerveWheel
@@ -168,7 +171,11 @@ class MyRobot(LemonRobot):
 
         self.estimated_field = Field2d()
 
-        self.field_layout = AprilTagFieldLayout.loadField(AprilTagField.kDefaultField)
+        self.field_layout = AprilTagFieldLayout(
+            str(Path(__file__).parent.resolve() / "2026_test_field.json")
+        )
+
+        # self.field_layout = AprilTagFieldLayout.loadField(AprilTagField.kDefaultField)
 
         self.robot_to_camera_front = Transform3d(0.0, 0.0, 0.0, Rotation3d())
 

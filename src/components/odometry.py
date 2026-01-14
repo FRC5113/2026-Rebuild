@@ -1,7 +1,7 @@
 from wpilib import Field2d, SmartDashboard, Timer
 from wpimath.geometry import Transform3d, Pose2d
 from photonlibpy.photonCamera import PhotonCamera
-from photonlibpy.photonPoseEstimator import PhotonPoseEstimator, PoseStrategy
+from photonlibpy.photonPoseEstimator import PhotonPoseEstimator
 from robotpy_apriltag import AprilTagFieldLayout
 
 from lemonlib.vision import LemonCamera
@@ -34,6 +34,7 @@ class Odometry:
                     self.camera_pose_estimator_front.estimateLowestAmbiguityPose(result)
                 )
 
+            self.estimated_field.setRobotPose(camEstPose.estimatedPose)
             self.swerve_drive.addVisionPoseEstimate(
                 camEstPose.estimatedPose, camEstPose.timestampSeconds
             )

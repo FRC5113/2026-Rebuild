@@ -28,5 +28,5 @@ components = [
 
 # Other pip packages to install
 requires = [
-    "phoenix6", "robotpy-rev","sleipnirgroup-choreolib"
+    "phoenix6", "robotpy-rev","sleipnirgroup-choreolib", "photonlibpy==2026.0.1b38"
 ]
