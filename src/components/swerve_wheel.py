@@ -203,7 +203,7 @@ class SwerveWheel(Sendable):
         speed_output = self.speed_controller.calculate(
             self.speed_motor.get_velocity().value, state.speed
             )
-        self.speed_motor.set_control(controls.VoltageOut(speed_output))
+        self.speed_motor.set_control(controls.VoltageOut(-speed_output))
         # else:
         #     print(f"doing sysid at volts: {self.sysid_volts}")
         #     self.speed_motor.set_control(controls.VoltageOut(self.sysid_volts))
@@ -215,4 +215,4 @@ class SwerveWheel(Sendable):
         if abs(self.direction_controller.error) < 0.03:
             self.direction_motor.set_control(controls.static_brake.StaticBrake())
             return
-        self.direction_motor.set_control(controls.VoltageOut(-direction_output))
+        self.direction_motor.set_control(controls.VoltageOut(direction_output))

@@ -222,25 +222,29 @@ class MyRobot(LemonRobot):
             """
             rotate_mult = 0.75
             mult = 1
-            if self.primary.getR2Axis() >= 0.8:
-                mult *= 0.5
-            if self.primary.getL2Axis() >= 0.8:
-                mult *= 0.5
+            # if both 25% else 50 or 75
+            if not ((self.primary.getR2Axis() >= 0.8) and (self.primary.getL2Axis() >= 0.8)):
+                if self.primary.getR2Axis() >= 0.8:
+                    mult *= 0.75
+                if self.primary.getL2Axis() >= 0.8:
+                    mult *= 0.5
+            else:
+                mult *= 0.25
 
-            self.drive_control.drive_manual(
-                self.x_filter.calculate(
-                    self.sammi_curve(self.primary.getLeftY()) * mult * self.top_speed
-                ),
-                self.y_filter.calculate(
-                    self.sammi_curve(self.primary.getLeftX()) * mult * self.top_speed
-                ),
-                self.theta_filter.calculate(
-                    -self.sammi_curve(self.primary.getRightX())
-                    * rotate_mult
-                    * self.top_omega
-                ),
-                not self.primary.getCreateButton(),  # temporary
-            )
+            # self.drive_control.drive_manual(
+            #     self.x_filter.calculate(
+            #         self.sammi_curve(self.primary.getLeftY()) * mult * self.top_speed
+            #     ),
+            #     self.y_filter.calculate(
+            #         self.sammi_curve(self.primary.getLeftX()) * mult * self.top_speed
+            #     ),
+            #     self.theta_filter.calculate(
+            #         -self.sammi_curve(self.primary.getRightX())
+            #         * rotate_mult
+            #         * self.top_omega
+            #     ),
+            #     not self.primary.getCreateButton(),  # temporary
+            # )
             if self.primary.getSquareButton():
                 self.swerve_drive.reset_gyro()
 

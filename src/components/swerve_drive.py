@@ -70,10 +70,10 @@ class SwerveDrive(Sendable):
         been injected.
         """
         # Kinematics
-        self.front_left_pose = Translation2d(self.offset_x, self.offset_y)
-        self.front_right_pose = Translation2d(self.offset_x, -self.offset_y)
-        self.rear_left_pose = Translation2d(-self.offset_x, self.offset_y)
-        self.rear_right_pose = Translation2d(-self.offset_x, -self.offset_y)
+        self.front_left_pose = Translation2d(-self.offset_x, self.offset_y)
+        self.front_right_pose = Translation2d(self.offset_x, self.offset_y)
+        self.rear_left_pose = Translation2d(-self.offset_x, -self.offset_y)
+        self.rear_right_pose = Translation2d(self.offset_x, -self.offset_y)
         self.kinematics = SwerveDrive4Kinematics(
             self.front_left_pose,
             self.front_right_pose,
@@ -391,7 +391,7 @@ class SwerveDrive(Sendable):
             self.max_speed,
         )
 
-        print(f"Error: {self.front_left.direction_motor.get_closed_loop_error().value} Refrence: {self.front_left.direction_motor.get_closed_loop_reference().value} Output: {self.front_left.direction_motor.get_closed_loop_output().value}")
+        # print(f"Error: {self.front_left.direction_motor.get_closed_loop_error().value} Refrence: {self.front_left.direction_motor.get_closed_loop_reference().value} Output: {self.front_left.direction_motor.get_closed_loop_output().value}")
 
         self.front_left.setDesiredState(self.swerve_module_states[0])
         self.front_right.setDesiredState(self.swerve_module_states[1])
