@@ -36,6 +36,7 @@ from components.swerve_drive import SwerveDrive
 from components.swerve_wheel import SwerveWheel
 from components.drive_control import DriveControl
 from components.sysid_drive import SysIdDriveLinear
+from components.intake import Intake
 
 from components.odometry import Odometry
 
@@ -57,6 +58,7 @@ class MyRobot(LemonRobot):
 
     rasing_slew_rate = SmartPreference(5.0)
     falling_slew_rate = SmartPreference(5.0)
+    intake: Intake
 
     def createObjects(self):
         """This method is where all attributes to be injected are
@@ -72,6 +74,9 @@ class MyRobot(LemonRobot):
         """
         SWERVE
         """
+        #temp can ID
+        self.intake.motor_1 = TalonFX(1)
+        self.intake.motor_2 = TalonFX(2)
 
         # hardware
         self.front_left_speed_motor = TalonFX(11, self.canicore_canbus)
@@ -248,6 +253,16 @@ class MyRobot(LemonRobot):
             )
             if self.primary.getSquareButton():
                 self.swerve_drive.reset_gyro()
+
+            """
+            Intake
+            """
+            #average of both bumpers times 12
+            if self.primary.getLeftBumper() > 0.2:
+                self.intake.applyVolts(self.primary.getLeftBumper() * 12)
+            elif self.primary.getRightBumper > 0.2:
+                self.intake.applyVolts(self.primary.getLeftBumper() * 12)
+                
 
     @feedback
     def get_voltage(self) -> units.volts:
