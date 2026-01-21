@@ -28,7 +28,7 @@ from lemonlib.util import (
     AlertType,
 )
 from lemonlib.smart import SmartPreference, SmartProfile
-from lemonlib import LemonRobot  # , LemonCamera
+from lemonlib import LemonRobot, LemonCamera
 from lemonlib.util import AsymmetricSlewLimiter
 
 from autonomous.auto_base import AutoBase
@@ -37,13 +37,13 @@ from components.swerve_wheel import SwerveWheel
 from components.drive_control import DriveControl
 from components.sysid_drive import SysIdDriveLinear
 
-# from components.odometry import Odometry
+from components.odometry import Odometry
 
 
 class MyRobot(LemonRobot):
     sysid_drive: SysIdDriveLinear
     drive_control: DriveControl
-    # odometry: Odometry
+    odometry: Odometry
 
     swerve_drive: SwerveDrive
     front_left: SwerveWheel
@@ -93,10 +93,10 @@ class MyRobot(LemonRobot):
         # physical constants
         self.offset_x: units.meters = 0.28575
         self.offset_y: units.meters = 0.28575
-        # self.drive_gear_ratio = 6.75
-        self.drive_gear_ratio = (14.0 / 50.0) * (27.0 / 17.0) * (15.0 / 45.0)
-        # self.direction_gear_ratio = 150 / 7
-        self.direction_gear_ratio = (14/50)*(10/60)
+
+        self.drive_gear_ratio = 1/((14.0 / 50.0) * (27.0 / 17.0) * (15.0 / 45.0)) # gets more accurate gear ratio or something, idk dropbears did it
+
+        self.direction_gear_ratio = 150 / 7
         self.wheel_radius: units.meters = 0.0508
         self.max_speed: units.meters_per_second = 4.7
         self.direction_amps: units.amperes = 40.0
@@ -106,28 +106,22 @@ class MyRobot(LemonRobot):
         self.speed_profile = SmartProfile(
             "speed",
             {
-                "kP": 0.0,
+                "kP": 7.8294,
                 "kI": 0.0,
                 "kD": 0.0,
-                "kS": 0.17,
-                "kV": 0.104,
-                "kA": 0.01,
+                "kS": 0.11742,
+                "kV": 2.3941,
+                "kA": 0.11426,
             },
             not self.low_bandwidth,
         )
         self.direction_profile = SmartProfile(
             "direction",
             {
-                "kP": 3.0,
+                "kP": 92.079,
                 "kI": 0.0,
-                "kD": 0.0,
-                "kS": 0.14,
-                "kV": 0.375,
-                "kA": 0.0,
-                "kMaxV": 400.0,
-                "kMaxA": 4000.0,
-                "kMinInput": -math.pi,
-                "kMaxInput": math.pi,
+                "kD": 1.6683,
+                "kS": 0.086374,
             },
             not self.low_bandwidth,
         )
@@ -182,13 +176,17 @@ class MyRobot(LemonRobot):
             str(Path(__file__).parent.resolve() / "2026_test_field.json")
         )
 
-        # self.field_layout = AprilTagFieldLayout.loadField(AprilTagField.kDefaultField)
+        self.field_layout = AprilTagFieldLayout.loadField(AprilTagField.k2026RebuiltWelded)
 
-        self.robot_to_camera_front = Transform3d(0.0, 0.0, 0.0, Rotation3d())
+        # Robot to Camera Transforms
+        self.rtc_front_left = Transform3d(-self.offset_x, self.offset_y, 0.0, Rotation3d(0, 30, 45))
+        self.rtc_front_right = Transform3d(self.offset_x, self.offset_y, 0.0, Rotation3d(0, 30, -45))
+        self.rtc_back_left = Transform3d(-self.offset_x, -self.offset_y, 0.0, Rotation3d(0, 30, 135))
+        self.rtc_back_right = Transform3d(self.offset_x, -self.offset_y, 0.0, Rotation3d(0, 30, -135))
 
-        # self.camera_front = LemonCamera(
-        #     "Global_Shutter_Camera", self.robot_to_camera_front, self.field_layout
-        # )
+        self.camera_front_left = LemonCamera(
+            "Front_Left", self.rtc_front_left, self.field_layout
+        )
 
         if DriverStation.getAlliance() == DriverStation.Alliance.kRed:
             self.alliance = True

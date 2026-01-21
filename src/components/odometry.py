@@ -10,8 +10,7 @@ from components.swerve_drive import SwerveDrive
 
 
 class Odometry:
-    camera_front: LemonCamera
-    robot_to_camera_front: Transform3d
+    camera_front_left: LemonCamera
     field_layout: AprilTagFieldLayout
     swerve_drive: SwerveDrive
     estimated_field: Field2d
@@ -19,13 +18,13 @@ class Odometry:
     def setup(self):
         self.camera_pose_estimator_front = PhotonPoseEstimator(
             self.field_layout,
-            self.robot_to_camera_front,
+            self.camera_front_left.camera_to_bot,
         )
 
         SmartDashboard.putData("Estimated Field", self.estimated_field)
 
     def execute(self):
-        for result in self.camera_front.getAllUnreadResults():
+        for result in self.camera_front_left.getAllUnreadResults():
             camEstPose = self.camera_pose_estimator_front.estimateCoprocMultiTagPose(
                 result
             )

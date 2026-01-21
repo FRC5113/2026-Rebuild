@@ -91,6 +91,4 @@ class PhysicsEngine:
         sim_speeds.vx, sim_speeds.vy = sim_speeds.vy, sim_speeds.vx
         self.pose = self.physics_controller.drive(sim_speeds, tm_diff)
         # self.robot.camera.set_robot_pose(pose)
-        self.robot.pigeon.sim_state.set_raw_yaw(
-            self.pose.rotation().degrees()
-        )
+        self.robot.pigeon.sim_state.set_raw_yaw(self.pose.rotation().degrees())

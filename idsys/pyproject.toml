@@ -11,18 +11,19 @@ robotpy_version = "2026.2.1"
 # Run tests in isolated mode to prevent hanging and weird errors
 pyfrc.isolated = true
 
-# Which extra RobotPy components should be installed
+
+# Which optional robotpy components should be installed?
 # -> equivalent to `pip install robotpy[extra1, ...]
 components = [
-    # "all",
-     "apriltag",
+    #"all",
+    # "apriltag",
      "commands2",
+    # "cscore",
     # "romi",
-    "sim",
+    # "sim",
     # "xrp",
 ]
 
-# Other pip packages to install
-requires = [
-    "phoenix6", "robotpy-rev","sleipnirgroup-choreolib", "photonlibpy==2026.1.1rc4"
-]
+# Other pip packages to install, such as vendor packages (each element
+# is equivalent to a line in requirements.txt)
+requires = ["phoenix6"]

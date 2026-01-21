@@ -234,7 +234,6 @@ class SwerveDrive(Sendable):
 
     def reset_gyro(self) -> None:
         self.pigeon.set_yaw(0)
-        # self.pigeon.reset()
         self.pigeon_alert.enable()
 
     def addVisionPoseEstimate(self, pose: Pose2d, timestamp: units.seconds):

@@ -82,8 +82,9 @@ class SwerveWheel(Sendable):
         self.speed_current_limit_configs = CurrentLimitsConfigs()
         self.direction_current_limit_configs = CurrentLimitsConfigs()
 
-        self.cancoder_config.magnet_sensor.sensor_direction = SensorDirectionValue.CLOCKWISE_POSITIVE
-        # self.cancoder_config.magnet_sensor.absolute_sensor_discontinuity_point = math.pi
+        self.cancoder_config.magnet_sensor.sensor_direction = (
+            SensorDirectionValue.CLOCKWISE_POSITIVE
+        )
 
         self.direction_current_limit_configs.stator_current_limit = self.direction_amps
         self.speed_current_limit_configs.stator_current_limit = self.speed_amps
@@ -95,18 +96,18 @@ class SwerveWheel(Sendable):
             FeedbackConfigs()
             .with_feedback_remote_sensor_id(self.cancoder.device_id)
             .with_feedback_sensor_source(FeedbackSensorSourceValue.FUSED_CANCODER)
-            .with_rotor_to_sensor_ratio(1/self.direction_gear_ratio)
+            .with_rotor_to_sensor_ratio(self.direction_gear_ratio)
         )
-        
+
         self.direction_motor_configs.closed_loop_general = (
             ClosedLoopGeneralConfigs().with_continuous_wrap(True)
         )
 
         self.speed_motor_configs.feedback = (
-            FeedbackConfigs()
-            .with_sensor_to_mechanism_ratio(self.drive_gear_ratio)
+            FeedbackConfigs().with_sensor_to_mechanism_ratio(
+                self.drive_gear_ratio * self.wheel_radius
+            )
         )
-
 
         self.direction_motor.configurator.apply(self.direction_motor_configs)
         self.direction_motor.configurator.apply(self.direction_current_limit_configs)
@@ -114,7 +115,7 @@ class SwerveWheel(Sendable):
         self.speed_motor.configurator.apply(self.speed_current_limit_configs)
 
         self.desired_state = None
-        
+
         self.nt = SmartNT("Swerve Modules")
 
     def on_enable(self):
@@ -124,21 +125,18 @@ class SwerveWheel(Sendable):
                 self.direction_profile.create_ctre_turret_controller()
             )
             self.direction_motor_configs.slot0 = self.direction_controller
-            
+
             self.direction_motor.configurator.apply(self.direction_motor_configs)
 
             self.speed_motor_configs.slot0 = self.speed_controller
             self.speed_motor.configurator.apply(self.speed_motor_configs)
 
-        self.direction_control = controls.PositionVoltage(0).with_slot(0).with_enable_foc(True)
-        self.speed_control = controls.VelocityVoltage(0).with_slot(0).with_enable_foc(True)
-
-        # self.speed_controller = self.speed_profile.create_flywheel_controller(
-        #     f"{self.speed_motor.device_id}_speed"
-        # )
-        # self.direction_controller = self.direction_profile.create_turret_controller(
-        #     f"{self.direction_motor.device_id}_direction"
-        # )
+        self.direction_control = (
+            controls.PositionVoltage(0).with_slot(0).with_enable_foc(True)
+        )
+        self.speed_control = (
+            controls.VelocityVoltage(0).with_slot(0).with_enable_foc(True)
+        )
 
     """
     INFORMATIONAL METHODS
@@ -178,6 +176,12 @@ class SwerveWheel(Sendable):
             * (self.wheel_radius * 2 * math.pi)
         )
 
+    def get_integrated_angle(self):
+        return self.direction_motor.get_position().value * math.tau
+
+    def get_angle_absoulte(self):
+        return self.cancoder.get_absolute_position().value * math.tau
+
     """
     CONTROL METHODS
     """
@@ -191,13 +195,6 @@ class SwerveWheel(Sendable):
         self.doing_sysid = True
         self.sysid_volts = voltage
 
-    def get_integrated_angle(self):
-        return self.direction_motor.get_position().value * math.tau
-    
-    def get_angle_absoulte(self):
-        return self.cancoder.get_absolute_position().value * math.tau
-
-
     """
     EXECUTE
     """
@@ -209,62 +206,63 @@ class SwerveWheel(Sendable):
             self.direction_motor.set_control(controls.coast_out.CoastOut())
             return
         state = self.desired_state
-    
 
         current_angle = Rotation2d(self.get_angle_absoulte())
+
         state.optimize(current_angle)
+
         target_displacement = state.angle - current_angle
         target_angle = state.angle.radians()
 
-
-        self.direction_motor.set_control(self.direction_control.with_position(target_angle/math.tau))
+        # m/s to r/s
+        state.speed *= self.drive_gear_ratio / (self.wheel_radius * 2 * math.pi)
 
         # rescale the speed target based on how close we are to being correctly aligned
         target_speed = state.speed * target_displacement.cos()
+
         # speed_volt = self.drive_ff.calculate(target_speed)
-        self.speed_motor.set_control(
-            self.speed_control.with_velocity(target_speed)
+        self.speed_motor.set_control(self.speed_control.with_velocity(target_speed))
+
+
+        if abs(self.direction_motor.get_closed_loop_error) < 0.03:
+            self.direction_motor.set_control(controls.static_brake.StaticBrake())
+            return
+        
+        self.direction_motor.set_control(
+            self.direction_control.with_position(target_angle / math.tau)
         )
 
-        self.nt.put(f"Direction {self.direction_motor.device_id}/Error",self.direction_motor.get_closed_loop_error().value)
-        self.nt.put(f"Direction {self.direction_motor.device_id}/Reference",self.direction_motor.get_closed_loop_reference().value)
-        self.nt.put(f"Direction {self.direction_motor.device_id}/Output",self.direction_motor.get_closed_loop_output().value)
-        self.nt.put(f"Direction {self.direction_motor.device_id}/Mesurement",current_angle.radians())
+        # log data to nt
+        self.nt.put(
+            f"Direction {self.direction_motor.device_id}/Error",
+            self.direction_motor.get_closed_loop_error().value,
+        )
+        self.nt.put(
+            f"Direction {self.direction_motor.device_id}/Reference",
+            self.direction_motor.get_closed_loop_reference().value,
+        )
+        self.nt.put(
+            f"Direction {self.direction_motor.device_id}/Output",
+            self.direction_motor.get_closed_loop_output().value,
+        )
+        self.nt.put(
+            f"Direction {self.direction_motor.device_id}/Mesurement",
+            current_angle.radians(),
+        )
 
-        self.nt.put(f"Speed {self.speed_motor.device_id}/Error",self.speed_motor.get_closed_loop_error().value)
-        self.nt.put(f"Speed {self.speed_motor.device_id}/Reference",self.speed_motor.get_closed_loop_reference().value)
-        self.nt.put(f"Speed {self.speed_motor.device_id}/Output",self.speed_motor.get_closed_loop_output().value)
-        self.nt.put(f"Speed {self.speed_motor.device_id}/Mesurement",self.speed_motor.get_position().value)
-        
-
-        """wpi"""
-        # SmartDashboard.putData(self)
-        # encoder_rotation = Rotation2d(
-        #     self.cancoder.get_absolute_position().value * 2 * math.pi
-        # )
-
-        # if self.stopped:
-        #     self.speed_motor.set_control(controls.static_brake.StaticBrake())
-        #     self.direction_motor.set_control(controls.coast_out.CoastOut())
-        #     return
-
-        # state = self.desired_state
-        # state.optimize(encoder_rotation)
-
-        # # scale speed while turning
-        # state.speed *= (state.angle - encoder_rotation).cos()
-        # # convert speed from m/s to r/s
-        # state.speed *= self.drive_gear_ratio / (self.wheel_radius * 2 * math.pi)
-        # speed_output = self.speed_controller.calculate(
-        #     self.speed_motor.get_velocity().value, state.speed
-        # )
-        # self.speed_motor.set_control(controls.VoltageOut(-speed_output))
-
-        # direction_output = self.direction_controller.calculate(
-        #     encoder_rotation.radians(),
-        #     state.angle.radians(),
-        # )
-        # if abs(self.direction_controller.error) < 0.03:
-        #     self.direction_motor.set_control(controls.static_brake.StaticBrake())
-        #     return
-        # self.direction_motor.set_control(controls.VoltageOut(direction_output))
+        self.nt.put(
+            f"Speed {self.speed_motor.device_id}/Error",
+            self.speed_motor.get_closed_loop_error().value,
+        )
+        self.nt.put(
+            f"Speed {self.speed_motor.device_id}/Reference",
+            self.speed_motor.get_closed_loop_reference().value,
+        )
+        self.nt.put(
+            f"Speed {self.speed_motor.device_id}/Output",
+            self.speed_motor.get_closed_loop_output().value,
+        )
+        self.nt.put(
+            f"Speed {self.speed_motor.device_id}/Mesurement",
+            self.speed_motor.get_position().value,
+        )
