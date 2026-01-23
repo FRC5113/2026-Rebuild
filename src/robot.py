@@ -69,7 +69,6 @@ class MyRobot(LemonRobot):
 
         self.canicore_canbus = CANBus("can0")
         self.rio_canbus = CANBus.roborio()
-        TalonFXS().get_connected_motor
 
         """
         SWERVE
