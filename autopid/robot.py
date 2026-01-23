@@ -58,16 +58,24 @@ class Robot(TimedRobot):
         # Position control using voltage output, slot 0 gains, with Field Oriented Control enabled
         self.control = controls.PositionVoltage(0).with_slot(0).with_enable_foc(True)
 
-        self.stage = "p_sweep"  # State machine: "p_sweep" -> "d_sweep" -> "done"
+        self.stage = "d_sweep"  # State machine: "d_sweep" -> "p_sweep" -> "d_sweep" -> "done"
         self.timer = Timer()
         self.timer.start()
 
-        self.p_test = 10.0  # Starting kP value
+        self.s_test = 0.0  # Starting kS value
+        self.s_step = 0.001  # Amount to increment kS each iteration
+        self.s_osc = None
+
+        self.p_test = 50.0  # Starting kP value
         self.p_step = 1.0  # Amount to increment kP each iteration
+        self.p_step_small = 0.25
         self.p_osc = None  # Stores kP value where oscillations were detected
+        self.p_small = False
 
         self.d_test = 0.0  # Starting kD value
-        self.d_step = 0.15  # Amount to increment kD each iteration
+        self.d_step = 0.1  # Amount to increment kD each iteration
+        self.d_step_small = 0.01
+        self.d_small = False
 
         self.crossings = 0  # Counts how many times error crosses zero (sign changes)
         self.last_sign = 0  # Tracks previous error sign to detect zero crossings
@@ -76,6 +84,7 @@ class Robot(TimedRobot):
 
     def teleopInit(self):
         self.timer.reset()
+        self.starting_angle = self.cancoder.get_absolute_position().value * math.tau
 
     def teleopPeriodic(self):
         # Command motor to target position (divide by tau to convert radians to rotations)
@@ -93,19 +102,35 @@ class Robot(TimedRobot):
         if sign != self.last_sign:
             self.crossings += 1
         self.last_sign = sign
+        
+        if self.stage == "s_sweep" and self.timer.hasElapsed(1.2):
+            if (current_angle - self.starting_angle) > 0.001:
+                self.s_osc = self.s_test
+                self.s_test *= 0.9  # Back off to 90% of move point
+                self._apply_gains(self.p_test, 0, self.s_test)
+                self.crossings = 0
+                print(f"S Movement at {self.s_osc:.3f}, using {self.s_test:.3f}")
+            else:
+                self.s_test += self.s_step
+                self._apply_gains(0, 0, self.s_test)
+                print(f"Testing S = {self.s_test:.3f}")
 
         # p_sweep: Increase P until oscillations detected (3+ zero crossings = oscillating)
         if self.stage == "p_sweep" and self.timer.hasElapsed(1.2):
             if self.crossings >= 3:
                 self.p_osc = self.p_test
                 self.p_test *= 0.7  # Back off to 70% of oscillation point
-                self._apply_gains(self.p_test, 0)
-                self.stage = "d_sweep"
+                self._apply_gains(self.p_test, 0, self.s_test)
                 self.crossings = 0
-                print(f"P oscillation at {self.p_osc:.2f}, using {self.p_test:.2f}")
+                print(f"P oscillation at {self.p_osc:.3f}, using {self.p_test:.3f}")
+                if not p_small:
+                    self.p_small = True
+                    self.p_step = self.p_step_small
+                else:
+                    self.stage = "d_sweep"
             else:
                 self.p_test += self.p_step
-                self._apply_gains(self.p_test, 0)
+                self._apply_gains(self.p_test, 0, self.s_test)
                 print(f"Testing P = {self.p_test:.2f}")
 
             self.timer.reset()
@@ -115,13 +140,18 @@ class Robot(TimedRobot):
             overshoot_deg = abs(error) * 180 / math.pi  # Convert error to degrees
 
             if overshoot_deg < 2.0:
-                self.stage = "done"
-                print("\nAUTO TUNE COMPLETE")
-                print(f"FINAL kP = {self.p_test:.2f}")
-                print(f"FINAL kD = {self.d_test:.2f}")
+                if not self.d_small:
+                    self.d_small = True
+                    self.d_test *= 0.9
+                    self.d_step = self.d_step_small
+                else:
+                    self.stage = "done"
+                    print("\nAUTO TUNE COMPLETE")
+                    print(f"FINAL kP = {self.p_test:.2f}")
+                    print(f"FINAL kD = {self.d_test:.2f}")
             else:
                 self.d_test += self.d_step
-                self._apply_gains(self.p_test, self.d_test)
+                self._apply_gains(self.p_test, self.d_test, self.s_test)
                 print(f"Testing D = {self.d_test:.2f}")
 
             self.timer.reset()
@@ -131,12 +161,13 @@ class Robot(TimedRobot):
                 controls.static_brake.StaticBrake()
             )  # Hold position when tuning complete
 
-    def _apply_gains(self, p, d):
+    def _apply_gains(self, p, d, s):
         """Apply new PID gains to motor controller"""
         motor_cfg = TalonFXConfiguration()
         motor_cfg.slot0.k_p = p
         motor_cfg.slot0.k_i = 0
         motor_cfg.slot0.k_d = d
+        motor_cfg.slot0.k_s = s
         self.steer_motor.configurator.apply(motor_cfg)
 
 
