@@ -386,11 +386,12 @@ class SwerveDrive(Sendable):
             self.module_positions[i] = module.getPosition(True)
 
         chassis_rot = (
-            Rotation2d(
-                BaseStatusSignal.get_latency_compensated_value(
-                    self.pigeon.get_yaw(), self.pigeon.get_angular_velocity_z_world()
-                )
-            )
+            # Rotation2d(
+            #     BaseStatusSignal.get_latency_compensated_value(
+            #         self.pigeon.get_yaw(), self.pigeon.get_angular_velocity_z_world()
+            #     )
+            # )
+            self.pigeon.getRotation2d()
             + self.pigeon_offset
         )
 
