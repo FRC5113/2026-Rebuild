@@ -6,12 +6,19 @@ from phoenix6.hardware import CANcoder, TalonFX
 from phoenix6 import CANBus
 
 from components.swerve_wheel import SwerveWheel
-from components.swerve_tuner_test import SwerveTuner
+from components.swerve_tuner import SwerveTuner
+from components.analytical_tuner import AnalyticalTuner
+from components.trial_error_tuner import TrialErrorTuner
 from lemonlib.smart import SmartProfile
 
 
 class MyRobot(MagicRobot):
+
     tuner: SwerveTuner
+
+    analytical_tuner: AnalyticalTuner
+    trial_tuner: TrialErrorTuner
+    
     front_left: SwerveWheel
 
     def createObjects(self):
@@ -46,6 +53,7 @@ class MyRobot(MagicRobot):
                 "kI": 0.0,
                 "kD": 0.0,
                 "kS": 0.0,
+                "kV": 0.0,
             },
             True,
         )
@@ -61,11 +69,14 @@ class MyRobot(MagicRobot):
             },
             False,
         )
+        self.previous_state = None
+        self.state = None
 
     def teleopPeriodic(self):
         # self.tuner.engage()
         """Called periodically during teleop mode"""
         self.tuner.engage()
+
         if self.joystick.getBackButtonPressed():
             print("Starting Swerve Tuning...")
             self.tuner.start_tuning()
