@@ -35,7 +35,7 @@ from components.swerve_wheel import SwerveWheel
 from components.drive_control import DriveControl
 from components.sysid_drive import SysIdDriveLinear
 from components.intake import Intake
-
+from components.indexer import Inxexer
 from components.odometry import Odometry
 
 
@@ -57,6 +57,7 @@ class MyRobot(LemonRobot):
     rasing_slew_rate: SmartPreference = SmartPreference(5.0)
     falling_slew_rate: SmartPreference = SmartPreference(5.0)
     intake: Intake
+    indexer: Inxexer
 
     def createObjects(self):
         """This method is where all attributes to be injected are
@@ -279,6 +280,14 @@ class MyRobot(LemonRobot):
                 self.intake.set_voltage(self.secondary.getLeftTriggerAxis() * 12)
             if self.primary.getRightTriggerAxis() > 0.2:
                 self.intake.set_voltage(-self.secondary.getRightTriggerAxis() * 12)
+
+            """
+            Indexer
+            """
+            if self.secondary.getAButton():
+                self.indexer.set_voltage(12)
+            else:
+                self.indexer.set_voltage(0)
 
     @feedback
     def get_voltage(self) -> units.volts:

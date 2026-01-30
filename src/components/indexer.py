@@ -4,19 +4,20 @@ from phoenix6.signals import NeutralModeValue
 from magicbot import will_reset_to
 from wpimath import units
 
-
-class Intake:
-    motor: TalonFX
-
+class Inxexer:
+    indexMotor: TalonFX
+    kickerMotor: TalonFX
     voltage = will_reset_to(0.0)
 
     def setup(self):
         config = TalonFXConfiguration()
-        config.motor_output.neutral_mode = NeutralModeValue.BRAKE
-        self.motor.configurator.apply(config)
+        config.motor_output.neutral_mode = NeutralModeValue.COAST
+        self.indexMotor.configurator.apply(config)
+        self.kickerMotor.configurator.apply(config)
 
     def set_voltage(self, voltage: units.volts):
         self.voltage = voltage
 
     def execute(self):
-        self.motor.setVoltage(self.voltage)
+        self.indexMotor.setVoltage(self.voltage)
+        self.kickerMotor.setVoltage(self.voltage)
