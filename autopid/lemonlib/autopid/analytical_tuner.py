@@ -11,7 +11,7 @@ from wpilib import RobotBase, RuntimeType
 
 from ..smart import SmartNT
 from .motor_interface import MotorInterface, ControlMode
-from .tuning_data import MechanismTuningResults, MotorGains, ControlType, GravityType
+from .tuning_data import MechanismTuningResults, MotorGains, ControlType, GravityType, TuningProfile
 
 
 class AnalyticalTuner:
@@ -27,6 +27,9 @@ class AnalyticalTuner:
         # Tuning parameters
         self.test_voltage = 2.0  # Volts for step response
         self.oscillation_voltage = 1.5  # Volts for oscillation test
+
+        # Tuning profile selection
+        self.tuning_profile = TuningProfile.AUTO  # Auto-select best profile
 
         # State tracking
         self.is_running = False
@@ -59,6 +62,7 @@ class AnalyticalTuner:
         control_type: ControlType,
         gravity_type: GravityType,
         name: str,
+        tuning_profile: TuningProfile = TuningProfile.AUTO,
     ) -> None:
         """
         Start analytical tuning for a mechanism.
@@ -68,10 +72,12 @@ class AnalyticalTuner:
             control_type: Position or Velocity control
             gravity_type: Type of gravity compensation needed
             name: Human-readable name for the mechanism
+            tuning_profile: Ziegler-Nichols variant to use (default: AUTO)
         """
         self.current_motor = motor
         self.is_running = True
         self.is_done = False
+        self.tuning_profile = tuning_profile
 
         motor_id = motor.get_motor_id()
         self.results = MechanismTuningResults(
@@ -91,36 +97,7 @@ class AnalyticalTuner:
         self.timer.restart()
         self._reset_data()
 
-        # self.nt.put(f"{self.results.mechanism_name}/Analytical kS", 0.0)
-        # self.nt.put(f"{self.results.mechanism_name}/Analytical kV", 0.0)
-        # self.nt.put(f"{self.results.mechanism_name}/Analytical kA", 0.0)
-        # self.nt.put(f"{self.results.mechanism_name}/Analytical kP", 0.0)
-        # self.nt.put(f"{self.results.mechanism_name}/Analytical kI", 0.0)
-        # self.nt.put(f"{self.results.mechanism_name}/Analytical kD", 0.0)
-        # self.nt.put(f"{self.results.mechanism_name}/Analytical kG", 0.0)
-        # self.nt.put(f"{self.results.mechanism_name}/Static Voltage", 0.0)
-        # self.nt.put(f"{self.results.mechanism_name}/Step Voltage", 0.0)
-        # self.nt.put(
-        #     f"{self.results.mechanism_name}/Time Constant pos",
-        #     0.0,
-        # )
-        # self.nt.put(f"{self.results.mechanism_name}/Max Velocity pos", 0.0)
-        # self.nt.put(f"{self.results.mechanism_name}/Max Accel pos", 0.0)
-        # self.nt.put(
-        #     f"{self.results.mechanism_name}/Time Constant neg",
-        #     0.0,
-        # )
-        # self.nt.put(f"{self.results.mechanism_name}/Max Velocity neg", 0.0)
-        # self.nt.put(f"{self.results.mechanism_name}/Max Accel neg", 0.0)
-        # self.nt.put("Oscillation Voltage", 0.0)
-        # self.nt.put("Static Voltage", 0.0)
-        # self.nt.put(f"{self.results.mechanism_name}/Gravity V", 0.0)
-        # self.nt.put(f"{self.results.mechanism_name}/Static Friction V", 0.0)
-        # self.nt.put("Step Voltage", 0.0)
-        # self.nt.put(f"{self.results.mechanism_name}/Oscillation Period", 0.0)
-        # self.nt.put(f"{self.results.mechanism_name}/Oscillation Amplitude", 0.0)
-
-        print(f"Analytical tuning started for {name}")
+        print(f"Analytical tuning started for {name} with profile {tuning_profile.name}")
 
     def stop(self) -> None:
         """Stop the current tuning process"""
@@ -477,7 +454,7 @@ class AnalyticalTuner:
             )
 
     def _calculate_analytical_gains(self):
-        """Calculate PID gains using system identification"""
+        """Calculate PID gains using Ziegler-Nichols system identification"""
         gains = self.results.analytical_gains
 
         # Estimate kS from static friction
@@ -496,45 +473,16 @@ class AnalyticalTuner:
         # Set kG from gravity measurement
         gains.kG = self.results.gravity_voltage
 
-        # Calculate feedback gains based on control type
+        # Select tuning profile
+        profile = self.tuning_profile
+        if profile == TuningProfile.AUTO:
+            profile = self._select_best_profile()
+
+        # Apply the selected tuning profile
         if self.results.control_type == ControlType.POSITION:
-            # Use oscillation data if available
-            if self.results.oscillation_period and self.results.oscillation_amplitude:
-                amplitude = self.results.oscillation_amplitude
-                if amplitude > 0.001:
-                    Ku = 4.0 * self.oscillation_voltage / (math.pi * amplitude)
-                    Tu = self.results.oscillation_period
-
-                    # Modified Ziegler-Nichols for PD control
-                    gains.kP = 0.45 * Ku
-                    gains.kI = 0.0
-                    gains.kD = 0.1 * Ku * Tu
-                else:
-                    gains.kP = 10.0
-                    gains.kI = 0.0
-                    gains.kD = 0.1
-            else:
-                # Fallback to step response
-                tau = self.results.time_constant_pos or 0.1
-                if tau > 0:
-                    gains.kP = 1.2 / tau
-                    gains.kD = gains.kP * tau / 1.5
-                else:
-                    gains.kP = 10.0
-                    gains.kD = 0.1
-                gains.kI = 0.0
-
-        else:  # VELOCITY control
-            # For velocity control, use simpler tuning
-            tau = self.results.time_constant_pos or 0.1
-            if tau > 0:
-                gains.kP = 1.0 / tau
-                gains.kI = gains.kP / (10.0 * tau)  # Small integral for velocity
-                gains.kD = 0.0
-            else:
-                gains.kP = 5.0
-                gains.kI = 0.5
-                gains.kD = 0.0
+            self._apply_position_tuning(gains, profile)
+        else:  # VELOCITY
+            self._apply_velocity_tuning(gains, profile)
 
         # Output to NetworkTables
         self.nt.put(f"{self.results.mechanism_name}/Analytical kS", gains.kS)
@@ -545,7 +493,146 @@ class AnalyticalTuner:
         self.nt.put(f"{self.results.mechanism_name}/Analytical kD", gains.kD)
         self.nt.put(f"{self.results.mechanism_name}/Analytical kG", gains.kG)
 
-        print(f"{self.results.mechanism_name} - Analytical gains: {gains}")
+        print(
+            f"{self.results.mechanism_name} - Analytical gains ({profile.name}): {gains}"
+        )
+
+    def _select_best_profile(self) -> TuningProfile:
+        """Intelligently select best tuning profile based on characteristics"""
+        if self.results.control_type == ControlType.POSITION:
+            # For position control: prefer PD or CLASSIC_PID with oscillation data
+            if self.results.oscillation_period and self.results.oscillation_amplitude:
+                # Use CLASSIC_PID for best balance of performance and stability
+                return TuningProfile.CLASSIC_PID
+            else:
+                # Fallback to PD if no oscillation data
+                return TuningProfile.PD
+        else:
+            # For velocity control: use PI
+            return TuningProfile.PI
+
+    def _apply_position_tuning(self, gains: MotorGains, profile: TuningProfile):
+        """Apply Ziegler-Nichols tuning for position control"""
+        # Use oscillation data if available
+        if self.results.oscillation_period and self.results.oscillation_amplitude:
+            amplitude = self.results.oscillation_amplitude
+            if amplitude > 0.001:
+                # Calculate ultimate gain Ku and period Tu
+                Ku = 4.0 * self.oscillation_voltage / (math.pi * amplitude)
+                Tu = self.results.oscillation_period
+
+                # Apply selected tuning profile
+                if profile == TuningProfile.PD:
+                    # PD tuning: Kp=0.8*Ku, Kd=0.1*Ku*Tu
+                    gains.kP = 0.8 * Ku
+                    gains.kI = 0.0
+                    gains.kD = 0.1 * Ku * Tu
+
+                elif profile == TuningProfile.CLASSIC_PID:
+                    # Classic PID: Kp=0.6*Ku, Ki=1.2*Ku/Tu, Kd=0.075*Ku*Tu
+                    gains.kP = 0.6 * Ku
+                    gains.kI = 1.2 * Ku / Tu
+                    gains.kD = 0.075 * Ku * Tu
+
+                elif profile == TuningProfile.PESSEN_INTEGRAL:
+                    # Pessen Integral Rule: Kp=0.7*Ku, Ki=1.75*Ku/Tu, Kd=0.105*Ku*Tu
+                    gains.kP = 0.7 * Ku
+                    gains.kI = 1.75 * Ku / Tu
+                    gains.kD = 0.105 * Ku * Tu
+
+                elif profile == TuningProfile.NO_OVERSHOOT:
+                    # No overshoot: Kp=0.2*Ku, Ki=0.4*Ku/Tu, Kd=(0.0666...)*Ku*Tu
+                    gains.kP = 0.2 * Ku
+                    gains.kI = 0.4 * Ku / Tu
+                    gains.kD = (2.0/30.0) * Ku * Tu  # 0.066...= 2/30 for precision
+
+                elif profile == TuningProfile.SOME_OVERSHOOT:
+                    # Some overshoot (1/3 rule): Kp=(0.333...)*Ku, Ki=(0.666...)*Ku/Tu, Kd=(0.111...)*Ku*Tu
+                    gains.kP = (1.0/3.0) * Ku  # 0.333... = 1/3
+                    gains.kI = (2.0/3.0) * Ku / Tu  # 0.666... = 2/3
+                    gains.kD = (1.0/9.0) * Ku * Tu  # 0.111... = 1/9
+                else:  # PI (not ideal for position, but fallback)
+                    gains.kP = 0.45 * Ku
+                    gains.kI = 0.54 * Ku / Tu
+                    gains.kD = 0.0
+            else:
+                # Fallback if amplitude too small
+                gains.kP = 10.0
+                gains.kI = 0.0
+                gains.kD = 0.1
+        else:
+            # Fallback to step response tuning
+            tau = self.results.time_constant_pos or 0.1
+            if tau > 0:
+                gains.kP = 1.2 / tau
+                gains.kD = gains.kP * tau / 1.5
+            else:
+                gains.kP = 10.0
+                gains.kD = 0.1
+            gains.kI = 0.0
+
+    def _apply_velocity_tuning(self, gains: MotorGains, profile: TuningProfile):
+        """Apply Ziegler-Nichols tuning for velocity control"""
+        # Use oscillation data if available
+        if self.results.oscillation_period and self.results.oscillation_amplitude:
+            amplitude = self.results.oscillation_amplitude
+            if amplitude > 0.001:
+                # Calculate ultimate gain Ku and period Tu
+                Ku = 4.0 * self.oscillation_voltage / (math.pi * amplitude)
+                Tu = self.results.oscillation_period
+
+                # For velocity control, use PI or PID variants
+                if profile == TuningProfile.PI or profile == TuningProfile.AUTO:
+                    # Standard PI tuning: Kp=0.45*Ku, Ki=0.54*Ku/Tu
+                    gains.kP = 0.45 * Ku
+                    gains.kI = 0.54 * Ku / Tu
+                    gains.kD = 0.0
+
+                elif profile == TuningProfile.CLASSIC_PID:
+                    # Can use full PID for velocity: Kp=0.6*Ku, Ki=1.2*Ku/Tu, Kd=0.075*Ku*Tu
+                    gains.kP = 0.6 * Ku
+                    gains.kI = 1.2 * Ku / Tu
+                    gains.kD = 0.075 * Ku * Tu
+
+                elif profile == TuningProfile.PESSEN_INTEGRAL:
+                    # Pessen for velocity: Kp=0.7*Ku, Ki=1.75*Ku/Tu, Kd=0.105*Ku*Tu
+                    gains.kP = 0.7 * Ku
+                    gains.kI = 1.75 * Ku / Tu
+                    gains.kD = 0.105 * Ku * Tu
+
+                elif profile == TuningProfile.NO_OVERSHOOT:
+                    # No overshoot: Kp=0.2*Ku, Ki=0.4*Ku/Tu, Kd=(0.0666...)*Ku*Tu
+                    gains.kP = 0.2 * Ku
+                    gains.kI = 0.4 * Ku / Tu
+                    gains.kD = (2.0/30.0) * Ku * Tu  # 0.0̄66...= 2/30 for precision
+
+                elif profile == TuningProfile.SOME_OVERSHOOT:
+                    # Some overshoot (1/3 rule): Kp=(0.333...)*Ku, Ki=(0.666...)*Ku/Tu, Kd=(0.111...)*Ku*Tu
+                    gains.kP = (1.0/3.0) * Ku  # 0.333... = 1/3
+                    gains.kI = (2.0/3.0) * Ku / Tu  # 0.666... = 2/3
+                    gains.kD = (1.0/9.0) * Ku * Tu  # 0.111... = 1/9
+
+                elif profile == TuningProfile.PD:
+                    # PD for velocity (unusual but possible)
+                    gains.kP = 0.8 * Ku
+                    gains.kI = 0.0
+                    gains.kD = 0.1 * Ku * Tu
+            else:
+                # Fallback if amplitude too small
+                gains.kP = 5.0
+                gains.kI = 0.5
+                gains.kD = 0.0
+        else:
+            # Fallback to step response tuning
+            tau = self.results.time_constant_pos or 0.1
+            if tau > 0:
+                gains.kP = 1.0 / tau
+                gains.kI = gains.kP / (10.0 * tau)
+                gains.kD = 0.0
+            else:
+                gains.kP = 5.0
+                gains.kI = 0.5
+                gains.kD = 0.0
 
     """
     EXECUTE METHOD

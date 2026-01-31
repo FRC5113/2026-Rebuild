@@ -22,6 +22,18 @@ class GravityType(Enum):
     COSINE = 2
 
 
+class TuningProfile(Enum):
+    """Ziegler-Nichols tuning profile variants"""
+
+    PD = 0  # Pure PD: Fast response, good disturbance rejection, position only
+    PI = 1  # Pure PI: Velocity control, integrator steady-state error elimination
+    CLASSIC_PID = 2  # Classic PID: Balanced, ~25% overshoot, good disturbance rejection
+    PESSEN_INTEGRAL = 3  # Pessen: Faster settling, ~15% overshoot
+    NO_OVERSHOOT = 4  # No overshoot: Critical damping, slower settling
+    SOME_OVERSHOOT = 5  # Some overshoot: Fast response, ~10% overshoot, balanced
+    AUTO = 6  # Automatic selection based on application
+
+
 @dataclass
 class MotorGains:
     """Complete set of motor gains"""

@@ -17,7 +17,7 @@ from .motor_interface import (
     SparkMaxInterface,
     TalonFXSInterface,
 )
-from .tuning_data import ControlType, GravityType, MotorGains, MechanismTuningResults
+from .tuning_data import ControlType, GravityType, MotorGains, MechanismTuningResults,TuningProfile
 from .analytical_tuner import AnalyticalTuner
 from .trial_error_tuner import TrialErrorTuner
 
@@ -92,6 +92,7 @@ class GenericMotorTuner:
         motor,
         control_type: ControlType,
         name: str,
+        tuning_profile = TuningProfile.AUTO,
         motor_interface: Optional[MotorInterface] = None,
         gravity_type: GravityType = GravityType.NONE,
         position_getter: Optional[Callable[[], float]] = None,
@@ -121,6 +122,7 @@ class GenericMotorTuner:
         self.gravity_type = gravity_type
         self.name = name
         self.velocity_getter = velocity_getter
+        self.tuning_profile = tuning_profile
 
         # Create tuning components
         self.analytical_tuner = AnalyticalTuner()
@@ -195,7 +197,7 @@ class GenericMotorTuner:
             self.state = TuningState.ANALYTICAL_TUNING
             print(f"[{self.name}] Starting analytical tuning...")
             self.analytical_tuner.start(
-                self.motor_interface, self.control_type, self.gravity_type, self.name
+                self.motor_interface, self.control_type, self.gravity_type, self.name, self.tuning_profile
             )
         elif use_trial:
             self._start_trial_tuning()
