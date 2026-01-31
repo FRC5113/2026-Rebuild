@@ -8,6 +8,8 @@ This module demonstrates how to tune various FRC mechanisms including:
 - Elevators
 - Arms
 - And more!
+
+All examples use the new non-blocking state machine API that integrates with RobotPy's periodic loop.
 """
 
 from .generic_motor_tuner import (
@@ -24,16 +26,26 @@ from .motor_interface import TalonFXInterface, SparkMaxInterface
 
 def example_tune_swerve_module_simple(swerve_module):
     """
-    Simple example: Tune a swerve module using the convenience function.
+    Simple example: Create a swerve module tuner using the convenience function.
+    Call start_tuning() once, then call periodic() in your robot loop.
     """
     # Assuming swerve_module has a direction_motor (TalonFX)
-    gains = tune_swerve_module(
+    tuner = tune_swerve_module(
         motor=swerve_module.direction_motor,
         name=f"Swerve Module {swerve_module.direction_motor.device_id}",
     )
-
-    print(f"Tuned gains: {gains}")
-    return gains
+    
+    # Start tuning (call once)
+    tuner.start_tuning(use_analytical=True, use_trial=True)
+    
+    # In your periodic loop, call:
+    # if not tuner.is_complete():
+    #     tuner.periodic()
+    # else:
+    #     gains = tuner.get_final_gains()
+    #     print(f"Tuned gains: {gains}")
+    
+    return tuner
 
 
 def example_tune_swerve_module_custom(swerve_module):
@@ -48,25 +60,30 @@ def example_tune_swerve_module_custom(swerve_module):
         position_getter=lambda: swerve_module.getPosition().angle.radians(),
     )
 
-    # Run both analytical and trial tuning
-    gains = tuner.tune(use_analytical=True, use_trial=True)
+    # Start both analytical and trial tuning
+    tuner.start_tuning(use_analytical=True, use_trial=True)
+    
+    # In your periodic loop:
+    # if not tuner.is_complete():
+    #     tuner.periodic()
+    # else:
+    #     gains = tuner.get_final_gains()
+    #     tuner.export_gains_to_file(f"swerve_module_{swerve_module.direction_motor.device_id}_gains.json")
 
-    # Export results to file
-    tuner.export_gains_to_file(
-        f"swerve_module_{swerve_module.direction_motor.device_id}_gains.json"
-    )
-
-    return gains
+    return tuner
 
 
 def example_tune_flywheel_simple(shooter):
     """
-    Simple example: Tune a shooter flywheel.
+    Simple example: Create a flywheel tuner.
     """
-    gains = tune_flywheel(motor=shooter.flywheel_motor, name="Shooter Flywheel")
-
-    print(f"Flywheel tuned gains: {gains}")
-    return gains
+    tuner = tune_flywheel(motor=shooter.flywheel_motor, name="Shooter Flywheel")
+    tuner.start_tuning()
+    
+    # In periodic: tuner.periodic() until tuner.is_complete()
+    # Then: gains = tuner.get_final_gains()
+    
+    return tuner
 
 
 def example_tune_flywheel_analytical_only(shooter):
@@ -80,33 +97,36 @@ def example_tune_flywheel_analytical_only(shooter):
     )
 
     # Only analytical tuning
-    gains = tuner.tune(use_analytical=True, use_trial=False, timeout_seconds=60.0)
+    tuner.start_tuning(use_analytical=True, use_trial=False, timeout_seconds=60.0)
+    
+    # In periodic: tuner.periodic() until tuner.is_complete()
 
-    return gains
+    return tuner
 
 
 def example_tune_dual_flywheels(shooter):
     """
-    Example: Tune two flywheels (top and bottom).
+    Example: Tune two flywheels (top and bottom) sequentially.
+    You'll need to manage running them one at a time in your periodic loop.
     """
-    # Tune top flywheel
-    top_gains = tune_flywheel(motor=shooter.top_flywheel_motor, name="Top Flywheel")
-
-    # Tune bottom flywheel
-    bottom_gains = tune_flywheel(
-        motor=shooter.bottom_flywheel_motor, name="Bottom Flywheel"
-    )
-
-    return top_gains, bottom_gains
+    # Create tuners for both flywheels
+    top_tuner = tune_flywheel(motor=shooter.top_flywheel_motor, name="Top Flywheel")
+    bottom_tuner = tune_flywheel(motor=shooter.bottom_flywheel_motor, name="Bottom Flywheel")
+    
+    # Start first tuner (in your code, start second after first completes)
+    top_tuner.start_tuning()
+    
+    return top_tuner, bottom_tuner
 
 
 def example_tune_hood(shooter):
     """
-    Tune a shooter hood (position control, no gravity compensation needed).
+    Tune a shooter hood (position control, analytical only recommended).
     """
-    gains = tune_hood(motor=shooter.hood_motor, name="Shooter Hood")
-
-    return gains
+    tuner = tune_hood(motor=shooter.hood_motor, name="Shooter Hood")
+    tuner.start_tuning(use_trial=False)  # Analytical only
+    
+    return tuner
 
 
 def example_tune_hood_with_custom_units(shooter):
@@ -119,29 +139,30 @@ def example_tune_hood_with_custom_units(shooter):
         motor=shooter.hood_motor,
         control_type=ControlType.POSITION,
         name="Shooter Hood",
-        position_getter=lambda: shooter.get_hood_angle_degrees()
-        * math.pi
-        / 180.0,  # Convert to radians
+        position_getter=lambda: shooter.get_hood_angle_degrees() * math.pi / 180.0,
     )
 
-    gains = tuner.tune(use_analytical=True, use_trial=False)
-    return gains
+    tuner.start_tuning(use_analytical=True, use_trial=False)
+    return tuner
 
 
 def example_tune_elevator(elevator):
     """
     Tune an elevator with constant gravity compensation.
     """
-    gains = tune_elevator(
+    tuner = tune_elevator(
         motor=elevator.motor,
         name="Elevator",
         position_getter=lambda: elevator.get_height(),  # Returns height in meters
     )
+    tuner.start_tuning()
+    
+    # After tuner.is_complete():
+    # gains = tuner.get_final_gains()
+    # print(f"Elevator gains (with kG for gravity): {gains}")
+    # print(f"  kG (gravity compensation): {gains.kG:.4f} V")
 
-    print(f"Elevator gains (with kG for gravity): {gains}")
-    print(f"  kG (gravity compensation): {gains.kG:.4f} V")
-
-    return gains
+    return tuner
 
 
 def example_tune_elevator_sparkmax(elevator):
@@ -157,24 +178,27 @@ def example_tune_elevator_sparkmax(elevator):
         position_getter=lambda: elevator.get_height_meters(),
     )
 
-    gains = tuner.tune(use_analytical=True, use_trial=True)
-    return gains
+    tuner.start_tuning(use_analytical=True, use_trial=True)
+    return tuner
 
 
 def example_tune_arm_pivot(arm):
     """
     Tune an arm pivot with cosine gravity compensation.
     """
-    gains = tune_arm(
+    tuner = tune_arm(
         motor=arm.pivot_motor,
         name="Arm Pivot",
         position_getter=lambda: arm.get_angle(),  # Returns angle in radians
     )
+    tuner.start_tuning()
+    
+    # After tuner.is_complete():
+    # gains = tuner.get_final_gains()
+    # print(f"Arm gains (with kG for gravity): {gains}")
+    # print(f"  kG (gravity at horizontal): {gains.kG:.4f} V")
 
-    print(f"Arm gains (with kG for gravity): {gains}")
-    print(f"  kG (gravity at horizontal): {gains.kG:.4f} V")
-
-    return gains
+    return tuner
 
 
 def example_tune_arm_with_prep(arm):
@@ -183,24 +207,23 @@ def example_tune_arm_with_prep(arm):
 
     Important: For cosine gravity compensation, the arm should be
     positioned horizontally before tuning begins.
+    
+    Note: The preparation should be done in your robot code before calling start_tuning().
     """
-    # Move arm to horizontal position first
-    print("Moving arm to horizontal position for gravity measurement...")
-    arm.move_to_horizontal()  # Your robot-specific method
+    # Move arm to horizontal position first (do this in your robot periodic before starting tuner)
+    # print("Moving arm to horizontal position for gravity measurement...")
+    # arm.move_to_horizontal()  # Your robot-specific method
+    # Wait for arm to settle (in your periodic loop, not blocking)
 
-    # Wait for arm to settle
-    import wpilib
-
-    wpilib.Wait(2.0)
-
-    # Now tune
-    gains = tune_arm(
+    # Create and start tuner
+    tuner = tune_arm(
         motor=arm.pivot_motor,
         name="Arm Pivot",
         position_getter=lambda: arm.get_angle_radians(),
     )
+    tuner.start_tuning()
 
-    return gains
+    return tuner
 
 
 def example_tune_custom_mechanism(mechanism):
@@ -216,26 +239,27 @@ def example_tune_custom_mechanism(mechanism):
         conversion_factor=1.0,  # Only used for SparkMax
     )
 
-    # Tune with custom timeout
-    gains = tuner.tune(
+    # Start tuning with custom timeout
+    tuner.start_tuning(
         use_analytical=True, use_trial=True, timeout_seconds=120.0  # 2 minute timeout
     )
+    
+    # After tuner.is_complete():
+    # results = tuner.get_results()
+    # if results:
+    #     print(f"\nDetailed Results for {mechanism}:")
+    #     print(f"  Static Friction: {results.static_friction_voltage:.3f} V")
+    #     print(f"  Max Velocity: {results.max_velocity_pos:.3f} units/s")
+    #     print(f"  Time Constant: {results.time_constant_pos:.3f} s")
+    #     results.print_comparison()
 
-    # Get detailed results
-    results = tuner.get_results()
-    if results:
-        print(f"\nDetailed Results for {mechanism}:")
-        print(f"  Static Friction: {results.static_friction_voltage:.3f} V")
-        print(f"  Max Velocity: {results.max_velocity_pos:.3f} units/s")
-        print(f"  Time Constant: {results.time_constant_pos:.3f} s")
-        results.print_comparison()
-
-    return gains
+    return tuner
 
 
 def example_batch_tune_all_swerve_modules(drivetrain):
     """
-    Tune all four swerve modules in sequence.
+    Create tuners for all four swerve modules.
+    In your robot code, you'll need to run them sequentially in your periodic loop.
     """
     modules = [
         (drivetrain.front_left, "Front Left"),
@@ -244,63 +268,56 @@ def example_batch_tune_all_swerve_modules(drivetrain):
         (drivetrain.rear_right, "Rear Right"),
     ]
 
-    all_gains = {}
+    all_tuners = {}
 
     for module, name in modules:
-        print(f"\n{'='*70}")
-        print(f"Tuning {name} swerve module...")
-        print(f"{'='*70}\n")
-
-        gains = tune_swerve_module(
+        print(f"Creating tuner for {name} swerve module...")
+        tuner = tune_swerve_module(
             motor=module.direction_motor,
             name=f"Swerve {name}",
             position_getter=lambda m=module: m.getPosition().angle.radians(),
         )
+        all_tuners[name] = tuner
+    
+    # In your robot code, start and run these sequentially:
+    # 1. Start first tuner: all_tuners["Front Left"].start_tuning()
+    # 2. In periodic: if not tuner.is_complete(): tuner.periodic()
+    # 3. When complete, start next tuner
+    # 4. Repeat for all modules
 
-        all_gains[name] = gains
-
-    # Print summary
-    print("\n" + "=" * 70)
-    print("ALL SWERVE MODULES TUNED")
-    print("=" * 70)
-    for name, gains in all_gains.items():
-        print(f"\n{name}:")
-        print(f"  {gains}")
-
-    return all_gains
+    return all_tuners
 
 
 def example_tune_complete_robot(robot):
     """
-    Tune all mechanisms on a robot.
+    Create tuners for all mechanisms on a robot.
+    Note: These must be run sequentially in your robot's periodic loop.
     """
-    results = {}
+    tuners = {}
 
-    # Tune drivetrain
-    print("\n### TUNING DRIVETRAIN ###")
-    results["swerve"] = example_batch_tune_all_swerve_modules(robot.drivetrain)
+    # Create drivetrain tuners
+    print("### CREATING DRIVETRAIN TUNERS ###")
+    tuners["swerve"] = example_batch_tune_all_swerve_modules(robot.drivetrain)
 
-    # Tune shooter
-    print("\n### TUNING SHOOTER ###")
-    results["flywheel_top"] = tune_flywheel(robot.shooter.top_motor, "Top Flywheel")
-    results["flywheel_bottom"] = tune_flywheel(
-        robot.shooter.bottom_motor, "Bottom Flywheel"
-    )
-    results["hood"] = tune_hood(robot.shooter.hood_motor, "Hood")
+    # Create shooter tuners
+    print("### CREATING SHOOTER TUNERS ###")
+    tuners["flywheel_top"] = tune_flywheel(robot.shooter.top_motor, "Top Flywheel")
+    tuners["flywheel_bottom"] = tune_flywheel(robot.shooter.bottom_motor, "Bottom Flywheel")
+    tuners["hood"] = tune_hood(robot.shooter.hood_motor, "Hood")
 
-    # Tune elevator
-    print("\n### TUNING ELEVATOR ###")
-    results["elevator"] = tune_elevator(robot.elevator.motor, "Elevator")
+    # Create elevator tuner
+    print("### CREATING ELEVATOR TUNER ###")
+    tuners["elevator"] = tune_elevator(robot.elevator.motor, "Elevator")
 
-    # Tune arm
-    print("\n### TUNING ARM ###")
-    results["arm"] = tune_arm(robot.arm.pivot_motor, "Arm Pivot")
+    # Create arm tuner
+    print("### CREATING ARM TUNER ###")
+    tuners["arm"] = tune_arm(robot.arm.pivot_motor, "Arm Pivot")
 
     print("\n" + "=" * 70)
-    print("COMPLETE ROBOT TUNING FINISHED")
+    print("ALL TUNERS CREATED - Start and run them sequentially in your periodic loop")
     print("=" * 70)
 
-    return results
+    return tuners
 
 
 def example_apply_saved_gains(motor, gains: MotorGains):
@@ -353,91 +370,112 @@ def example_incremental_tuning(mechanism):
         motor=mechanism.motor, control_type=ControlType.POSITION, name="Mechanism"
     )
 
-    analytical_gains = tuner.tune(
-        use_analytical=True, use_trial=False, timeout_seconds=60.0
-    )
+    tuner.start_tuning(use_analytical=True, use_trial=False, timeout_seconds=60.0)
+    
+    # In your periodic loop, run until complete:
+    # while not tuner.is_complete():
+    #     tuner.periodic()
+    # analytical_gains = tuner.get_final_gains()
+    # print("Test the robot with analytical gains. If not satisfied, run trial tuning.")
 
-    # Test the analytical gains...
-    print(
-        "Test the robot with analytical gains. If not satisfied, continue to trial tuning."
-    )
+    # Second pass: Trial-and-error refinement (create new tuner or reset state)
+    # For trial-only refinement, you would create a new tuner and start with use_analytical=False
 
-    # Second pass: Trial-and-error refinement
-    print("\nPhase 2: Trial-and-error refinement...")
-    final_gains = tuner.tune(
-        use_analytical=False, use_trial=True, timeout_seconds=120.0
-    )
-
-    return final_gains
+    return tuner
 
 
 def example_mixed_controllers(robot):
     """
-    Tune mechanisms with different motor controllers.
+    Create tuners for mechanisms with different motor controllers.
     """
     # TalonFX swerve modules
-    swerve_gains = tune_swerve_module(
+    swerve_tuner = tune_swerve_module(
         motor=robot.drivetrain.front_left.direction_motor, name="Swerve FL"  # TalonFX
     )
 
     # SparkMax elevator
-    elevator_gains = GenericMotorTuner(
+    elevator_tuner = GenericMotorTuner(
         motor=robot.elevator.spark_motor,  # SparkMax
         control_type=ControlType.POSITION,
         gravity_type=GravityType.CONSTANT,
         name="Elevator (SparkMax)",
         conversion_factor=0.1,  # Encoder units to meters
-    ).tune()
+    )
 
     # TalonFX arm
-    arm_gains = tune_arm(motor=robot.arm.talon_motor, name="Arm Pivot")  # TalonFX
-
-    return {"swerve": swerve_gains, "elevator": elevator_gains, "arm": arm_gains}
+    arm_tuner = tune_arm(motor=robot.arm.talon_motor, name="Arm Pivot")  # TalonFX
+    
+    # Start them sequentially in your periodic loop
+    return {"swerve": swerve_tuner, "elevator": elevator_tuner, "arm": arm_tuner}
 
 
 def integrate_tuner_into_robot():
     """
-    Example of how to integrate tuner into your robot.py or commands.
+    Example of how to integrate tuner into your robot.py using the non-blocking API.
     """
 
     example_robot_py = '''
-from generic_motor_tuner import tune_swerve_module, tune_elevator, tune_arm
+from lemonlib.autopid.generic_motor_tuner import tune_swerve_module, tune_elevator, tune_arm
 from magicbot import MagicRobot
 
 class MyRobot(MagicRobot):
     # ... your robot components ...
     
-    def teleopInit(self):
-        """When teleop starts, optionally run auto-tune"""
-        # Check if tuning is requested (e.g., via shuffleboard button)
-        if self.should_run_tuning:
-            self.run_auto_tune()
+    def createObjects(self):
+        # ... create motors, etc ...
+        self.active_tuner = None
+        self.tuning_queue = []
     
-    def run_auto_tune(self):
-        """Run auto-tune for all mechanisms"""
-        print("Starting auto-tune sequence...")
+    def teleopPeriodic(self):
+        """Run tuning state machine in periodic loop"""
         
-        # Tune swerve modules
+        # Start tuning when button pressed
+        if self.joystick.getBackButtonPressed() and self.active_tuner is None:
+            print("Starting auto-tune sequence...")
+            self._setup_tuning_queue()
+            self._start_next_tuner()
+        
+        # Run active tuner
+        if self.active_tuner is not None:
+            if not self.active_tuner.is_complete():
+                self.active_tuner.periodic()
+            else:
+                # Current tuner complete
+                gains = self.active_tuner.get_final_gains()
+                print(f"Tuning complete! Gains: {gains}")
+                
+                # Start next tuner or finish
+                self._start_next_tuner()
+    
+    def _setup_tuning_queue(self):
+        """Create all tuners and add to queue"""
+        self.tuning_queue = []
+        
+        # Swerve modules
         for module in [self.front_left, self.front_right, self.rear_left, self.rear_right]:
-            gains = tune_swerve_module(
+            tuner = tune_swerve_module(
                 motor=module.direction_motor,
                 name=f"Swerve {module.direction_motor.device_id}"
             )
-            # Gains are automatically applied
+            self.tuning_queue.append(tuner)
         
-        # Tune elevator
-        elevator_gains = tune_elevator(
-            motor=self.elevator.motor,
-            name="Elevator"
-        )
+        # Elevator
+        elevator_tuner = tune_elevator(motor=self.elevator.motor, name="Elevator")
+        self.tuning_queue.append(elevator_tuner)
         
-        # Tune arm
-        arm_gains = tune_arm(
-            motor=self.arm.pivot_motor,
-            name="Arm"
-        )
-        
-        print("Auto-tune complete!")
+        # Arm
+        arm_tuner = tune_arm(motor=self.arm.pivot_motor, name="Arm")
+        self.tuning_queue.append(arm_tuner)
+    
+    def _start_next_tuner(self):
+        """Start the next tuner in the queue"""
+        if self.tuning_queue:
+            self.active_tuner = self.tuning_queue.pop(0)
+            self.active_tuner.start_tuning()
+            print(f"Starting tuner: {self.active_tuner.name}")
+        else:
+            self.active_tuner = None
+            print("Auto-tune sequence complete!")
 '''
 
     print(example_robot_py)
