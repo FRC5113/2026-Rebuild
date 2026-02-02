@@ -69,28 +69,28 @@ class MyRobot(LemonRobot):
         """
         self.tuning_enabled = True
 
-        self.canicore_canbus = CANBus("can0")
+        self.canivore_canbus = CANBus("can0")
         self.rio_canbus = CANBus.roborio()
 
         """
         SWERVE
         """
         # hardware
-        self.front_left_speed_motor = TalonFX(11, self.canicore_canbus)
-        self.front_left_direction_motor = TalonFX(12, self.canicore_canbus)
-        self.front_left_cancoder = CANcoder(13, self.canicore_canbus)
+        self.front_left_speed_motor = TalonFX(11, self.canivore_canbus)
+        self.front_left_direction_motor = TalonFX(12, self.canivore_canbus)
+        self.front_left_cancoder = CANcoder(13, self.canivore_canbus)
 
-        self.front_right_speed_motor = TalonFX(21, self.canicore_canbus)
-        self.front_right_direction_motor = TalonFX(22, self.canicore_canbus)
-        self.front_right_cancoder = CANcoder(23, self.canicore_canbus)
+        self.front_right_speed_motor = TalonFX(21, self.canivore_canbus)
+        self.front_right_direction_motor = TalonFX(22, self.canivore_canbus)
+        self.front_right_cancoder = CANcoder(23, self.canivore_canbus)
 
-        self.rear_left_speed_motor = TalonFX(41, self.canicore_canbus)
-        self.rear_left_direction_motor = TalonFX(42, self.canicore_canbus)
-        self.rear_left_cancoder = CANcoder(43, self.canicore_canbus)
+        self.rear_left_speed_motor = TalonFX(41, self.canivore_canbus)
+        self.rear_left_direction_motor = TalonFX(42, self.canivore_canbus)
+        self.rear_left_cancoder = CANcoder(43, self.canivore_canbus)
 
-        self.rear_right_speed_motor = TalonFX(31, self.canicore_canbus)
-        self.rear_right_direction_motor = TalonFX(32, self.canicore_canbus)
-        self.rear_right_cancoder = CANcoder(33, self.canicore_canbus)
+        self.rear_right_speed_motor = TalonFX(31, self.canivore_canbus)
+        self.rear_right_direction_motor = TalonFX(32, self.canivore_canbus)
+        self.rear_right_cancoder = CANcoder(33, self.canivore_canbus)
 
         # physical constants
         self.offset_x: units.meters = 0.28575
@@ -197,29 +197,8 @@ class MyRobot(LemonRobot):
         )
 
         """
-        MISCELLANEOUS
+        ODOMETRY
         """
-
-        self.pigeon = Pigeon2(30, self.canicore_canbus)
-
-        self.fms = DriverStation.isFMSAttached()
-
-        # driving curve
-        self.sammi_curve = curve(
-            lambda x: 1.89 * x**3 + 0.61 * x, 0.0, deadband=0.1, max_mag=1.0
-        )
-
-        # alerts
-        AlertManager(self.logger)
-        if self.low_bandwidth:
-            AlertManager.instant_alert(
-                "Low Bandwidth Mode is active! Tuning is disabled.", AlertType.INFO
-            )
-
-        self.pdh = PowerDistribution()
-
-        self.estimated_field = Field2d()
-
         # Custom apriltag field layout
         self.field_layout = AprilTagFieldLayout(
             str(Path(__file__).parent.resolve() / "2026_test_field.json")
@@ -246,6 +225,39 @@ class MyRobot(LemonRobot):
         self.camera_front_left = LemonCamera(
             "Front_Left", self.rtc_front_left, self.field_layout
         )
+        self.camera_front_right = LemonCamera(
+            "Front_Right", self.rtc_front_right, self.field_layout
+        )
+        self.camera_back_left = LemonCamera(
+            "Back_Left", self.rtc_back_left, self.field_layout
+        )
+        self.camera_back_right = LemonCamera(
+            "Back_Right", self.rtc_back_right, self.field_layout
+        )
+
+        """
+        MISCELLANEOUS
+        """
+
+        self.pigeon = Pigeon2(30, self.canivore_canbus)
+
+        self.fms = DriverStation.isFMSAttached()
+
+        # driving curve
+        self.sammi_curve = curve(
+            lambda x: 1.89 * x**3 + 0.61 * x, 0.0, deadband=0.1, max_mag=1.0
+        )
+
+        # alerts
+        AlertManager(self.logger)
+        if self.low_bandwidth:
+            AlertManager.instant_alert(
+                "Low Bandwidth Mode is active! Tuning is disabled.", AlertType.INFO
+            )
+
+        self.pdh = PowerDistribution()
+
+        self.estimated_field = Field2d()
 
         if DriverStation.getAlliance() == DriverStation.Alliance.kRed:
             self.alliance = True

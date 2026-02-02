@@ -14,7 +14,7 @@ from wpimath.system.plant import DCMotor, LinearSystemId
 from wpimath.geometry import Pose2d, Transform2d, Rotation3d
 from robot import MyRobot
 
-# from lemonlib.simulation import LemonCameraSim
+from lemonlib.simulation import LemonCameraSim
 from lemonlib.simulation import FalconSim, FalconSimFOC, KrakenSim, KrakenSimFOC
 
 
@@ -47,6 +47,19 @@ class PhysicsEngine:
             encoder.sim_state.add_position(0.25)
 
         self.robot.pigeon.sim_state.set_supply_voltage(5.0)
+
+        self.vision_sim_front_left = LemonCameraSim(
+            robot.camera_front_left, robot.field_layout, fov=65.0, fps=60.0
+        )
+        self.vision_sim_front_right = LemonCameraSim(
+            robot.camera_front_right, robot.field_layout, fov=65.0, fps=60.0
+        )
+        self.vision_sim_back_left = LemonCameraSim(
+            robot.camera_back_left, robot.field_layout, fov=65.0, fps=60.0
+        )
+        self.vision_sim_front_right = LemonCameraSim(
+            robot.camera_back_right, robot.field_layout, fov=65.0, fps=60.0
+        )
 
     def update_sim(self, now, tm_diff):
         # if DriverStation.isEnabled():
@@ -92,3 +105,8 @@ class PhysicsEngine:
         self.pose = self.physics_controller.drive(sim_speeds, tm_diff)
         # self.robot.camera.set_robot_pose(pose)
         self.robot.pigeon.sim_state.set_raw_yaw(self.pose.rotation().degrees())
+
+        self.vision_sim_front_left.update(self.pose)
+        self.vision_sim_front_right.update(self.pose)
+        self.vision_sim_back_left.update(self.pose)
+        self.vision_sim_front_right.update(self.pose)
