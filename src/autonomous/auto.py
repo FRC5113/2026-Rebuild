@@ -20,6 +20,7 @@ class state_test(AutoBase):
     def __init__(self):
         super().__init__(
             [
-                "climb",
+                # "state:test_state",
+                # "trajectory:climb",
             ]
         )

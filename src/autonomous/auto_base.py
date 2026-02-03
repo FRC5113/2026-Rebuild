@@ -35,20 +35,31 @@ class AutoBase(AutonomousStateMachine):
 
         self.sequence = sequence  # List of trajectories and states
         self.current_step = -1
+        #self.states : list[str] = []
         self.trajectory_index = -1
         self.trajectories: list[SwerveTrajectory] = []
         self.starting_pose = None
         SmartDashboard.putNumber("Distance", 0)
         SmartDashboard.putString("Final Pose", "none")
-        # Load trajectories (skip non-trajectory steps)
+
+        # separates sequence in states and trajectories (which are tagged accordingly. if not tagged, will throw error)
         for item in self.sequence:
-            if not item.startswith("state:"):  # Only load actual trajectories
-                try:
-                    self.trajectories.append(choreo.load_swerve_trajectory(item))
-                    if self.starting_pose is None and RobotBase.isSimulation():
-                        self.starting_pose = self.get_starting_pose()
-                except ValueError:
-                    pass  # Ignore missing trajectories
+            x = item.split(":") # divides into tag and name
+            assert len(x) == 2 # asserts there were not multiple :'s in item
+            match(x[0]):
+                case "state":
+                    #self.states.append(x[1])
+                    pass
+                case "trajectory":
+                    try:
+                        self.trajectories.append(choreo.load_swerve_trajectory(x[1]))
+                        if self.starting_pose is None and RobotBase.isSimulation():
+                            self.starting_pose = self.get_starting_pose()
+                    except ValueError:
+                        pass  # Ignore missing trajectories
+                case _:
+                    raise ValueError("Elements in sequence must be tagged with either \"state:\" or \"trajectory\"")
+                
 
     def on_enable(self) -> None:
         starting_pose = self.get_starting_pose()
@@ -92,6 +103,11 @@ class AutoBase(AutonomousStateMachine):
 
         step = self.sequence[self.current_step]
         if step.startswith("state:"):
+            state = step.split("state:")[1]
+            if state not in self.state_names:
+                #print("WARNING: STATE {state} NOT DEFINED")
+                raise ReferenceError("State {state} not defined")
+                
 
             self.next_state(step.split("state:")[1])  # Go to the specified state
         else:
@@ -133,3 +149,8 @@ class AutoBase(AutonomousStateMachine):
     """
     STATES
     """
+    
+    # @state
+    # def test_state(self):
+    #     print("This is a state")
+    #     self.next_state("next_step")
