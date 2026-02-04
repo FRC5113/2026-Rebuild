@@ -162,26 +162,9 @@ class MyRobot(LemonRobot):
         """
         self.shooter_left_motor = TalonFX(2, self.rio_canbus)
         self.shooter_right_motor = TalonFX(3, self.rio_canbus)
-        self.shooter_hood_motor = TalonFXS(4, self.rio_canbus)
 
         self.shooter_gear_ratio = 1.0
-        self.shooter_hood_gear_ratio = 1.0
         self.shooter_amps: units.amperes = 40.0
-
-        self.hood_profile = SmartProfile(
-            "hood",
-            {
-                "kP": 0.0,
-                "kI": 0.0,
-                "kD": 0.0,
-                "kS": 0.0,
-                "kV": 0.0,
-                "kA": 0.0,
-                "kMaxV": 10.0,
-                "kMaxA": 100.0,
-            },
-            not self.low_bandwidth,
-        )
 
         self.shooter_profile = SmartProfile(
             "shooter",

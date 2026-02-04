@@ -299,11 +299,12 @@ class SwerveWheel(Sendable):
 
         self.speed_motor.set_control(self.speed_control.with_velocity(target_speed))
 
-        # if abs(self.direction_motor.get_closed_loop_error().value) < 0.03:
-        #     self.direction_motor.set_control(controls.static_brake.StaticBrake())
-        #     return
+        if abs(self.direction_motor.get_closed_loop_error().value) < 0.03:
+            self.direction_motor.set_control(controls.static_brake.StaticBrake())
+            return
 
         # Divide by tau to convert radians back to rotations for motor control
+        print(target_angle)
         self.direction_motor.set_control(
             self.direction_control.with_position(target_angle / math.tau)
         )

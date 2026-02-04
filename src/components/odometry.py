@@ -25,61 +25,60 @@ class Odometry:
         )
         self.camera_pose_estimator_front_right = PhotonPoseEstimator(
             self.field_layout,
-            self.camera_front_left.camera_to_bot,
+            self.camera_front_right.camera_to_bot,
         )
         self.camera_pose_estimator_back_left = PhotonPoseEstimator(
             self.field_layout,
-            self.camera_front_left.camera_to_bot,
+            self.camera_back_left.camera_to_bot,
         )
         self.camera_pose_estimator_back_right = PhotonPoseEstimator(
             self.field_layout,
-            self.camera_front_left.camera_to_bot,
+            self.camera_back_right.camera_to_bot,
         )
 
         SmartDashboard.putData("Estimated Field", self.estimated_field)
 
     def execute(self):
         for result in self.camera_front_left.getAllUnreadResults():
-            camEstPose = self.camera_pose_estimator_front_left.estimateCoprocMultiTagPose(
-                result
+            camEstPose = (
+                self.camera_pose_estimator_front_left.estimateCoprocMultiTagPose(result)
             )
             if camEstPose is None:
                 continue
-    
-            self.estimated_field.setRobotPose(camEstPose.estimatedPose)
+
             self.swerve_drive.addVisionPoseEstimate(
                 camEstPose.estimatedPose, camEstPose.timestampSeconds
             )
         for result in self.camera_front_right.getAllUnreadResults():
-            camEstPose = self.camera_pose_estimator_front_right.estimateCoprocMultiTagPose(
-                result
+            camEstPose = (
+                self.camera_pose_estimator_front_right.estimateCoprocMultiTagPose(
+                    result
+                )
             )
             if camEstPose is None:
                 continue
 
-            self.estimated_field.setRobotPose(camEstPose.estimatedPose)
             self.swerve_drive.addVisionPoseEstimate(
                 camEstPose.estimatedPose, camEstPose.timestampSeconds
             )
         for result in self.camera_back_left.getAllUnreadResults():
-            camEstPose = self.camera_pose_estimator_back_left.estimateCoprocMultiTagPose(
-                result
+            camEstPose = (
+                self.camera_pose_estimator_back_left.estimateCoprocMultiTagPose(result)
             )
             if camEstPose is None:
                 continue
 
-            self.estimated_field.setRobotPose(camEstPose.estimatedPose)
             self.swerve_drive.addVisionPoseEstimate(
                 camEstPose.estimatedPose, camEstPose.timestampSeconds
             )
         for result in self.camera_back_right.getAllUnreadResults():
-            camEstPose = self.camera_pose_estimator_back_right.estimateCoprocMultiTagPose(
-                result
+            camEstPose = (
+                self.camera_pose_estimator_back_right.estimateCoprocMultiTagPose(result)
             )
             if camEstPose is None:
                 continue
 
-            self.estimated_field.setRobotPose(camEstPose.estimatedPose)
             self.swerve_drive.addVisionPoseEstimate(
                 camEstPose.estimatedPose, camEstPose.timestampSeconds
             )
+        self.estimated_field.setRobotPose(self.swerve_drive.get_estimated_pose())

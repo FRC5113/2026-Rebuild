@@ -29,16 +29,12 @@ from lemonlib.smart import SmartNT, SmartPreference, SmartProfile
 class Shooter:
     right_motor: TalonFX
     left_motor: TalonFX
-    hood_motor: TalonFXS
-    hood_profile: SmartProfile
     shooter_profile: SmartProfile
     shooter_gear_ratio: float
-    shooter_hood_gear_ratio: float
     shooter_amps: units.amperes
     tuning_enabled: bool
 
     shooter_velocity = will_reset_to(0.0)
-    shooter_angle = will_reset_to(0.0)
 
     def setup(self):
         self.shooter_motors_config = TalonFXConfiguration()
@@ -62,25 +58,10 @@ class Shooter:
             self.left_motor.device_id, MotorAlignmentValue.OPPOSED
         )
 
-        self.hood_motor_config = TalonFXSConfiguration()
-        self.hood_motor_config.motor_output.neutral_mode = NeutralModeValue.BRAKE
-        self.hood_motor_config.commutation.motor_arrangement = (
-            MotorArrangementValue.NEO550_JST
-        )
-        self.hood_motor_config.external_feedback.external_feedback_sensor_source = (
-            ExternalFeedbackSensorSourceValue.QUADRATURE
-        )
-
-        self.hood_motor.configurator.apply(self.hood_motor_config)
-
     def set_velocity(self, speed: float):
         self.shooter_velocity = speed
 
-    def set_shoot_angle(self, angle: units.degrees):
-        self.shooter_angle = angle
-
     def on_enable(self):
-        self.hood_controller = self.hood_profile.create_turret_controller("Hood")
         if self.tuning_enabled:
             self.shooter_controller = (
                 self.shooter_profile.create_ctre_flywheel_controller()
@@ -93,13 +74,6 @@ class Shooter:
             )
 
     def execute(self):
-        hood_output = self.hood_controller.calculate(
-            self.shooter_angle, self.hood_motor.get_position().value
-        )
-        self.hood_motor.set_control(
-            controls.VoltageOut(hood_output).with_enable_foc(True)
-        )
-
         self.left_motor.set_control(
             self.shooter_control.with_velocity(self.shooter_velocity)
         )

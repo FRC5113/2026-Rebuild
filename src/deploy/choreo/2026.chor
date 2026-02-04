@@ -32,6 +32,34 @@
      "exp":"180 degrees",
      "val":3.141592653589793
     }
+   },
+   "outpost":{
+    "x":{
+     "exp":"0.43 m",
+     "val":0.43
+    },
+    "y":{
+     "exp":"0.66 m",
+     "val":0.66
+    },
+    "heading":{
+     "exp":"0 rad",
+     "val":0.0
+    }
+   },
+   "shoot":{
+    "x":{
+     "exp":"2 m",
+     "val":2.0
+    },
+    "y":{
+     "exp":"4 m",
+     "val":4.0
+    },
+    "heading":{
+     "exp":"0 rad",
+     "val":0.0
+    }
    }
   }
  },
@@ -57,12 +85,12 @@
    }
   },
   "mass":{
-   "exp":"50 lbs",
-   "val":22.6796185
+   "exp":"100 lbs",
+   "val":45.359237
   },
   "inertia":{
-   "exp":"6 kg m ^ 2",
-   "val":6.0
+   "exp":"1 kg m ^ 2",
+   "val":1.0
   },
   "gearing":{
    "exp":"6.75",
