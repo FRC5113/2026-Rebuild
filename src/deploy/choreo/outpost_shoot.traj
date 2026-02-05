@@ -15,7 +15,8 @@
  "params":{
   "waypoints":[
     {"x":{"exp":"outpost.x", "val":0.43}, "y":{"exp":"outpost.y", "val":0.66}, "heading":{"exp":"outpost.heading", "val":0.0}, "intervals":17, "split":false, "fixTranslation":true, "fixHeading":true, "overrideIntervals":false},
-    {"x":{"exp":"shoot.x", "val":2.0}, "y":{"exp":"shoot.y", "val":4.0}, "heading":{"exp":"shoot.heading", "val":0.0}, "intervals":40, "split":false, "fixTranslation":true, "fixHeading":true, "overrideIntervals":false}],
+    {"x":{"exp":"shoot.x", "val":2.0}, "y":{"exp":"shoot.y", "val":4.0}, "heading":{"exp":"shoot.heading", "val":0.0}, "intervals":40, "split":false, "fixTranslation":true, "fixHeading":true, "overrideIntervals":false},
+    {"x":{"exp":"4.621181488037109 m", "val":4.621181488037109}, "y":{"exp":"4.038451194763184 m", "val":4.038451194763184}, "heading":{"exp":"0 deg", "val":0.0}, "intervals":40, "split":false, "fixTranslation":true, "fixHeading":true, "overrideIntervals":false}],
   "constraints":[
     {"from":"first", "to":null, "data":{"type":"StopPoint", "props":{}}, "enabled":true},
     {"from":"last", "to":null, "data":{"type":"StopPoint", "props":{}}, "enabled":true},

@@ -35,6 +35,8 @@ class Shooter:
     tuning_enabled: bool
 
     shooter_velocity = will_reset_to(0.0)
+    shooter_voltage = will_reset_to(0.0)
+    manual_control = will_reset_to(False)
 
     def setup(self):
         self.shooter_motors_config = TalonFXConfiguration()
@@ -59,7 +61,12 @@ class Shooter:
         )
 
     def set_velocity(self, speed: float):
+        self.manual_control = False
         self.shooter_velocity = speed
+
+    def set_voltage(self, volts: float):
+        self.manual_control = True
+        self.shooter_voltage = volts
 
     def on_enable(self):
         if self.tuning_enabled:
@@ -74,7 +81,10 @@ class Shooter:
             )
 
     def execute(self):
-        self.left_motor.set_control(
-            self.shooter_control.with_velocity(self.shooter_velocity)
-        )
+        if self.manual_control:
+            self.left_motor.set_control(controls.VoltageOut(self.shooter_voltage))
+        else:
+            self.left_motor.set_control(
+                self.shooter_control.with_velocity(self.shooter_velocity)
+            )
         self.right_motor.set_control(self.shooter_follower)

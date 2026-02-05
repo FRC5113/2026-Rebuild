@@ -37,10 +37,12 @@ from components.sysid_drive import SysIdDriveLinear
 from components.intake import Intake
 from components.odometry import Odometry
 from components.shooter import Shooter
+from components.shooter_controller import ShooterController
 
 
 class MyRobot(LemonRobot):
     sysid_drive: SysIdDriveLinear
+    shooter_controller: ShooterController
     drive_control: DriveControl
     odometry: Odometry
 
@@ -249,6 +251,7 @@ class MyRobot(LemonRobot):
 
     def enabledperiodic(self):
         self.drive_control.engage()
+        self.shooter_controller.engage()
 
     def autonomousPeriodic(self):
         self._display_auto_trajectory()
@@ -316,8 +319,11 @@ class MyRobot(LemonRobot):
             """
             SHOOTER
             """
+            if self.secondary.getXButton():
+                self.shooter_controller.request_shoot()
+
             if self.secondary.getLeftTriggerAxis() >= 0.8:
-                self.shooter.set_velocity(100)
+                self.shooter.set_voltage(self.secondary.getLeftTriggerAxis() * 8.0)
 
     @feedback
     def get_voltage(self) -> units.volts:

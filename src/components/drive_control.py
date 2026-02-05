@@ -30,6 +30,8 @@ class DriveControl(StateMachine):
     rotationX = will_reset_to(0)
     drive_sysid = will_reset_to(False)
     sysid_volts = will_reset_to(0.0)
+    point_to_target = will_reset_to(False)
+    point_target: units.degrees = 0.0
     sample: SwerveSample = None  # Trajectory sample for autonomous path following
 
     def drive_manual(
@@ -61,6 +63,11 @@ class DriveControl(StateMachine):
         """Request the robot to autonomously navigate to a specific pose."""
         self.go_to_pose = True
         self.desired_pose = pose
+
+    def point_to(self, angle: units.radians):
+        """Request the robot to point towards a specific angle."""
+        self.point_to_target = True
+        self.point_target = angle
 
     def drive_auto(self, sample: SwerveSample = None):
         """Provide a trajectory sample for autonomous path following."""
@@ -119,6 +126,16 @@ class DriveControl(StateMachine):
             self.next_state("going_to_pose")
         if self.drive_sysid:
             self.next_state("drive_sysid_state")
+
+    @state
+    def point_towards_target(self):
+        """
+        State to rotate robot to face a specific target.
+        Exits when target is reached or no longer requested.
+        """
+        self.swerve_drive.point_towards(self.point_target)
+        if not self.point_to_target:
+            self.next_state("free")
 
     @state
     def drive_sysid_state(self):

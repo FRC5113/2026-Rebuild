@@ -286,7 +286,7 @@ class SwerveDrive(Sendable):
         )
         self.drive(speeds.vx, speeds.vy, speeds.omega, False, self.period)
 
-    def point_towards(self, rightX: float, rightY: float):
+    def point_towards_joy(self, rightX: float, rightY: float):
         # Convert joystick input to rotation command for pointing robot
         moved = abs(rightX) > 0.1 or abs(rightY) > 0.1  # Deadband check
         if not moved:
@@ -297,6 +297,14 @@ class SwerveDrive(Sendable):
         print(current_angle, angle)
         output = self.smart_theta_controller.calculate(current_angle, angle)
         return output
+
+    def point_towards(self, angle: units.radians):
+        current_angle = math.radians(self.pigeon.get_yaw().value)
+        print(current_angle, angle)
+        output = self.smart_theta_controller.calculate(current_angle, angle)
+        self.translationX = 0.0
+        self.translationY = 0.0
+        self.rotationX = output
 
     def driveRobotRelative(self, speeds: ChassisSpeeds):
         """Drives the robot using ROBOT RELATIVE speeds.
