@@ -22,7 +22,7 @@ from wpimath.geometry import Rotation2d
 from wpimath.kinematics import SwerveModulePosition, SwerveModuleState
 from wpiutil import Sendable
 
-from magicbot import will_reset_to
+from magicbot import will_reset_to, feedback
 from lemonlib.smart import SmartNT, SmartPreference, SmartProfile
 
 
@@ -60,14 +60,6 @@ class Shooter:
             self.left_motor.device_id, MotorAlignmentValue.OPPOSED
         )
 
-    def set_velocity(self, speed: float):
-        self.manual_control = False
-        self.shooter_velocity = speed
-
-    def set_voltage(self, volts: float):
-        self.manual_control = True
-        self.shooter_voltage = volts
-
     def on_enable(self):
         if self.tuning_enabled:
             self.shooter_controller = (
@@ -79,6 +71,30 @@ class Shooter:
             self.right_motor.configurator.apply(
                 self.shooter_motors_config.with_slot0(self.shooter_controller)
             )
+
+    """
+    CONTROL METHODS
+    """
+
+    def set_velocity(self, speed: float):
+        self.manual_control = False
+        self.shooter_velocity = speed
+
+    def set_voltage(self, volts: float):
+        self.manual_control = True
+        self.shooter_voltage = volts
+
+    """
+    INFORMATIONAL METHODS
+    """
+
+    @feedback
+    def get_velocity(self) -> float:
+        return self.left_motor.get_velocity().value
+
+    @feedback
+    def get_target_velocity(self) -> float:
+        return self.shooter_velocity
 
     def execute(self):
         if self.manual_control:

@@ -294,13 +294,11 @@ class SwerveDrive(Sendable):
         # Convert joystick position to angle, offset by 90 degrees to align with robot forward
         angle = math.atan2(rightY, rightX) - math.radians(90)
         current_angle = math.radians(self.pigeon.get_yaw().value)
-        print(current_angle, angle)
         output = self.smart_theta_controller.calculate(current_angle, angle)
         return output
 
     def point_towards(self, angle: units.radians):
         current_angle = math.radians(self.pigeon.get_yaw().value)
-        print(current_angle, angle)
         output = self.smart_theta_controller.calculate(current_angle, angle)
         self.translationX = 0.0
         self.translationY = 0.0

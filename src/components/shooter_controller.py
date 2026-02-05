@@ -44,17 +44,13 @@ class ShooterController(StateMachine):
         self.target_angle = math.atan2(hub_pos.y - robot_pos.y, hub_pos.x - robot_pos.x)
         self.target_rps = np.interp(distance, self.distance_lookup, self.speed_lookup)
 
-    @feedback
-    def current_rpm(self) -> float:
-        return self.shooter.shooter_velocity
-
     @state(first=True)
     def idle(self):
         self._update_target()
 
         self.shooter.set_velocity(self.target_rps * self.idle_speed_scalar)
         if self.shooting:
-            self.next_state("spin_up")
+            self.next_state("align")
 
     @state
     def align(self):
@@ -62,10 +58,10 @@ class ShooterController(StateMachine):
 
         self.shooter.set_velocity(self.target_rps)
         self.drive_control.point_to(self.target_angle)
-        if not self.shooting:
-            self.next_state("idle")
-        else:
+        if self.shooting:
             self.next_state("spin_up")
+        else:
+            self.next_state("idle")
 
     @state
     def spin_up(self):
@@ -77,7 +73,7 @@ class ShooterController(StateMachine):
         tolerance = self.speed_tolerance * self.target_rps  # 5% tolerance
         if not self.shooting:
             self.next_state("idle")
-        if abs(self.current_rpm() - self.target_rps) <= tolerance:
+        elif abs(self.current_rps() - self.target_rps) <= tolerance:
             self.at_speed = True
             self.next_state("shoot")
         else:
