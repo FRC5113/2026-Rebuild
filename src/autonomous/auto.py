@@ -60,13 +60,23 @@ class ParallelStep(AutoStep):
 
     def __init__(self, *steps: AutoStep):
         self.steps = steps
+        # Track which sub-steps have completed so we don't re-execute them
+        self._done = [False] * len(steps)
 
     def execute(self, ctx: AutoContext) -> StepStatus:
         all_done = True
-        for step in self.steps:
-            if step.execute(ctx) == StepStatus.RUNNING:
+        for i in range(len(self.steps)):
+            if self._done[i]:
+                continue
+            status = self.steps[i].execute(ctx)
+            if status == StepStatus.DONE:
+                self._done[i] = True
+            else:
                 all_done = False
-        return StepStatus.DONE if all_done else StepStatus.RUNNING
+        # If any step is not done yet, we're still running
+        if not all_done:
+            return StepStatus.RUNNING
+        return StepStatus.DONE
 
 
 class SwerveDriveAuto(AutoStep):
