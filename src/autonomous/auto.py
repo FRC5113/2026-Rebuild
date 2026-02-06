@@ -20,6 +20,19 @@ class AutoStep:
         raise NotImplementedError
 
 
+class AutoContext:
+    sd: SwerveDrive
+    sh: Shooter
+    it: Intake
+    sc: ShooterController
+
+    def __init__(self, sd: SwerveDrive, sh: Shooter, it: Intake, sc: ShooterController):
+        self.sd = sd
+        self.sh = sh
+        self.it = it
+        self.sc = sc
+
+
 class AutoRunner:
     def __init__(self, steps: List[AutoStep], ctx):
         self.steps = steps
@@ -37,19 +50,6 @@ class AutoRunner:
 
         if status == StepStatus.DONE:
             self.index += 1
-
-
-class AutoContext:
-    sd: SwerveDrive
-    sh: Shooter
-    it: Intake
-    sc: ShooterController
-
-    def __init__(self, sd: SwerveDrive, sh: Shooter, it: Intake, sc: ShooterController):
-        self.sd = sd
-        self.sh = sh
-        self.it = it
-        self.sc = sc
 
 
 class ParallelStep(AutoStep):
