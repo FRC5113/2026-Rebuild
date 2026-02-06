@@ -6,7 +6,7 @@ from components.swerve_drive import SwerveDrive
 from components.shooter import Shooter
 from components.intake import Intake
 from components.shooter_controller import ShooterController
-
+from magicbot import StateMachine
 
 class StepStatus(Enum):
     RUNNING = 1
@@ -24,9 +24,9 @@ class AutoContext:
     sd: SwerveDrive
     sh: Shooter
     it: Intake
-    sc: ShooterController
+    sc: StateMachine
 
-    def __init__(self, sd: SwerveDrive, sh: Shooter, it: Intake, sc: ShooterController):
+    def __init__(self, sd: SwerveDrive, sh: Shooter, it: Intake, sc: StateMachine):
         self.sd = sd
         self.sh = sh
         self.it = it
@@ -34,9 +34,9 @@ class AutoContext:
 
 
 class AutoRunner:
-    def __init__(self, steps: List[AutoStep], ctx):
+    def __init__(self, steps: List[AutoStep]):
         self.steps = steps
-        self.ctx = ctx
+        self.ctx = AutoContext(SwerveDrive(), Shooter(), Intake(), ShooterController()) # Placeholder
         self.index = 0
 
     def reset(self):
