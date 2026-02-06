@@ -62,6 +62,12 @@ class AutoBase(AutonomousStateMachine):
                         'WARNING:Elements in sequence must be tagged with either "state:" or "trajectory"'
                     )
 
+    def add_action(action_name: str) -> str:
+        return f"state:{action_name}"
+
+    def add_trajectory(trajectory_name: str) -> str:
+        return f"trajectory:{trajectory_name}"   
+
     def on_enable(self) -> None:
         starting_pose = self.get_starting_pose()
         if starting_pose is not None and RobotBase.isSimulation():
