@@ -2,7 +2,6 @@ import math
 from pathlib import Path
 
 import wpilib
-from magicbot import feedback
 from phoenix6 import CANBus
 from phoenix6.hardware import CANcoder, Pigeon2, TalonFX, TalonFXS
 from robotpy_apriltag import AprilTagFieldLayout
@@ -24,7 +23,7 @@ from components.shooter_controller import ShooterController
 from components.swerve_drive import SwerveDrive
 from components.swerve_wheel import SwerveWheel
 from components.sysid_drive import SysIdDriveLinear
-from lemonlib import LemonCamera, LemonInput, LemonRobot
+from lemonlib import LemonCamera, LemonInput, LemonRobot, fms_feedback
 from lemonlib.smart import SmartPreference, SmartProfile
 from lemonlib.util import (
     AlertManager,
@@ -333,7 +332,7 @@ class MyRobot(LemonRobot):
         if isinstance(selected_auto, AutoBase):
             selected_auto.display_trajectory()
 
-    @feedback
+    @fms_feedback
     def display_auto_state(self) -> None:
         selected_auto = self._automodes.chooser.getSelected()
         if isinstance(selected_auto, AutoBase):

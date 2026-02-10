@@ -1,6 +1,6 @@
 from .control import LemonInput
 from .lemonbot.commandcomponent import LemonComponent
-from .lemonbot.commandmagicrobot import LemonRobot
+from .lemonbot.lemonrobot import LemonRobot
 from .lemonbot.tunable import fms_feedback
 from .vision import LemonCamera
 

@@ -1,7 +1,7 @@
 import math
 
 from choreo.trajectory import SwerveSample
-from magicbot import feedback, will_reset_to
+from magicbot import will_reset_to
 from phoenix6 import BaseStatusSignal
 from phoenix6.hardware import Pigeon2
 from wpilib import DriverStation, SmartDashboard
@@ -19,6 +19,7 @@ from wpimath.kinematics import (
 from wpiutil import Sendable, SendableBuilder
 
 from components.swerve_wheel import SwerveWheel
+from lemonlib import fms_feedback
 from lemonlib.smart import SmartController, SmartProfile
 from lemonlib.util import Alert, AlertType
 
@@ -216,7 +217,7 @@ class SwerveDrive(Sendable):
             self.rear_right.getMeasuredState(),
         )
 
-    @feedback
+    @fms_feedback
     def get_distance_from_desired_pose(self) -> units.meters:
         if not self.has_desired_pose:
             return 0

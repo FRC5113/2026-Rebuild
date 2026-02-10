@@ -27,7 +27,8 @@ requires = [
     "phoenix6",
     "robotpy-rev",
     "sleipnirgroup-choreolib",
-    "photonlibpy==2026.1.1rc4",
+    "photonlibpy",
+    "robotpy_pykit",
 ]
 
 [tool.pytest.ini_options]
@@ -40,3 +41,21 @@ faulthandler_timeout = 60
 pythonpath = "."
 testpaths = ["tests"]
 xfail_strict = true
+
+[tool.coverage.run]
+branch = true
+omit = [
+    "config.py",
+    "config-3.py",
+    "*/lemonlib/*",
+    "*/__init__.py",
+    "*/tests/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if typing.TYPE_CHECKING:",
+]

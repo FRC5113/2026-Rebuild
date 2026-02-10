@@ -1,4 +1,4 @@
-from magicbot import feedback, will_reset_to
+from magicbot import will_reset_to
 from phoenix6 import controls
 from phoenix6.configs import (
     FeedbackConfigs,
@@ -12,6 +12,7 @@ from phoenix6.signals import (
 )
 from wpimath import units
 
+from lemonlib import fms_feedback
 from lemonlib.smart import SmartProfile
 
 
@@ -79,11 +80,11 @@ class Shooter:
     INFORMATIONAL METHODS
     """
 
-    @feedback
+    @fms_feedback
     def get_velocity(self) -> float:
         return self.left_motor.get_velocity().value
 
-    @feedback
+    @fms_feedback
     def get_target_velocity(self) -> float:
         return self.shooter_velocity
 

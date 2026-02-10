@@ -1,7 +1,9 @@
 from typing import Callable, List, Tuple
 
+import hal
 import magicbot
-from wpilib import DriverStation, Notifier
+from pykit.logger import Logger
+from wpilib import DriverStation, Notifier, RobotController
 
 
 class LemonRobot(magicbot.MagicRobot):
@@ -37,6 +39,47 @@ class LemonRobot(magicbot.MagicRobot):
         components are called.
         """
         pass
+
+    def startCompetition(self) -> None:
+        """
+        This runs the mode-switching loop.
+
+        .. warning:: Internal API, don't override
+        """
+
+        # TODO: usage reporting?
+        self.robotInit()
+
+        self.initEnd = RobotController.getFPGATime()
+        Logger.periodicAfterUser(self.initEnd, 0)
+
+        # Tell the DS the robot is ready to be enabled
+        hal.observeUserProgramStarting()
+
+        Logger.startReciever()
+
+        while not self._MagicRobot__done:
+            isEnabled, isAutonomous, isTest = self.getControlState()
+            # Run logger pre-user code (load inputs from log or sensors)
+            periodicBeforeStart = RobotController.getFPGATime()
+            Logger.periodicBeforeUser()
+
+            # Execute user periodic code and measure timing
+            userCodeStart = RobotController.getFPGATime()
+            if not isEnabled:
+                self._disabled()
+            elif isAutonomous:
+                self.autonomous()
+            elif isTest:
+                self._test()
+            else:
+                self._operatorControl()
+            userCodeEnd = RobotController.getFPGATime()
+
+            # Run logger post-user code (save outputs to log)
+            Logger.periodicAfterUser(
+                userCodeEnd - userCodeStart, userCodeStart - periodicBeforeStart
+            )
 
     # def endCompetition(self) -> None:
     #     self.__done = True
