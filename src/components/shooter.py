@@ -27,6 +27,8 @@ from lemonlib.smart import SmartNT, SmartPreference, SmartProfile
 
 
 class Shooter:
+    """low level component that directly manages the shooter motors and their configuration. controlled by the shooter controller component, but can also be directly controlled for testing purposes"""
+
     right_motor: TalonFX
     left_motor: TalonFX
     shooter_profile: SmartProfile

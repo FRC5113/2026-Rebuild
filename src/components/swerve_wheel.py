@@ -116,9 +116,16 @@ class SwerveWheel(Sendable):
         self.direction_motor_configs.closed_loop_general = (
             ClosedLoopGeneralConfigs().with_continuous_wrap(True)
         )
-        tryUntilOk(5, lambda: self.direction_motor.configurator.apply(self.direction_motor_configs))
-        
-        tryUntilOk(5, lambda: self.speed_motor.configurator.apply(self.speed_motor_configs))
+        tryUntilOk(
+            5,
+            lambda: self.direction_motor.configurator.apply(
+                self.direction_motor_configs
+            ),
+        )
+
+        tryUntilOk(
+            5, lambda: self.speed_motor.configurator.apply(self.speed_motor_configs)
+        )
 
         self.drive_position = self.speed_motor.get_position()
         self.drive_velocity = self.speed_motor.get_velocity()
@@ -152,13 +159,22 @@ class SwerveWheel(Sendable):
             self.direction_motor_configs.slot0 = self.direction_controller
             self.speed_motor_configs.slot0 = self.speed_controller
 
-            tryUntilOk(5, lambda: self.direction_motor.configurator.apply(self.direction_motor_configs))
-            
-            tryUntilOk(5, lambda: self.speed_motor.configurator.apply(self.speed_motor_configs))
+            tryUntilOk(
+                5,
+                lambda: self.direction_motor.configurator.apply(
+                    self.direction_motor_configs
+                ),
+            )
+
+            tryUntilOk(
+                5, lambda: self.speed_motor.configurator.apply(self.speed_motor_configs)
+            )
 
         self.direction_control = controls.PositionVoltage(0)
-         
-        self.speed_control = controls.VelocityTorqueCurrentFOC(0) # FOC = Field Oriented Control for better motion
+
+        self.speed_control = controls.VelocityTorqueCurrentFOC(
+            0
+        )  # FOC = Field Oriented Control for better motion
 
     """
     INFORMATIONAL METHODS
@@ -279,10 +295,10 @@ class SwerveWheel(Sendable):
             self.speed_motor.set_control(controls.static_brake.StaticBrake())
             self.direction_motor.set_control(controls.coast_out.CoastOut())
             return
-        
+
         # Update position tracking before using it
         self.getPosition(refresh=True)
-        
+
         state = self.desired_state
 
         current_angle = self.swerve_module_position.angle

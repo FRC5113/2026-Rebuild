@@ -227,6 +227,16 @@ class SwerveDrive(Sendable):
     def get_distance_from_pose(self, pose: Pose2d) -> units.meters:
         return pose.translation().distance(self.get_estimated_pose().translation())
 
+    def at_angle(self) -> bool:
+        if not self.has_desired_pose:
+            return True
+        angle_error = abs(
+            (
+                self.desired_pose.rotation() - self.get_estimated_pose().rotation()
+            ).degrees()
+        )
+        return angle_error < 3.0  # degrees of tolerance
+
     """
     CONTROL METHODS
     """

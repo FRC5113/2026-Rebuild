@@ -184,6 +184,13 @@ class MyRobot(LemonRobot):
         )
 
         """
+        INDEXER
+        """
+        self.indexer_kicker_motor = TalonFXS(4, self.rio_canbus)
+        self.indexer_conveyor_motor = TalonFXS(5, self.rio_canbus)
+        self.indexer_kicker_amps: units.amperes = 20.0
+        self.indexer_conveyor_amps: units.amperes = 10.0
+        """
         ODOMETRY
         """
         # Custom apriltag field layout
@@ -274,11 +281,10 @@ class MyRobot(LemonRobot):
         )
 
     def teleopPeriodic(self):
+        """
+        SWERVE
+        """
         with self.consumeExceptions():
-
-            """
-            SWERVE
-            """
             rotate_mult = 0.75
             mult = 1
             # if both 25% else 50 or 75
@@ -310,26 +316,25 @@ class MyRobot(LemonRobot):
                 self.swerve_drive.reset_gyro()
             self.swerve_drive.doTelemetry()
 
-            """
-            INTAKE
-            """
+        """
+        INTAKE
+        """
+        with self.consumeExceptions():
+
             if self.secondary.getAButton():
                 self.intake.set_voltage(12)
             if self.secondary.getBButton():
                 self.intake.set_voltage(-12)
 
-            """
-            SHOOTER
-            """
+        """
+        SHOOTER
+        """
+        with self.consumeExceptions():
             if self.secondary.getXButton():
                 self.shooter_controller.request_shoot()
 
             if self.secondary.getLeftTriggerAxis() >= 0.8:
                 self.shooter.set_voltage(self.secondary.getLeftTriggerAxis() * 8.0)
-
-    @feedback
-    def get_voltage(self) -> units.volts:
-        return RobotController.getBatteryVoltage()
 
     def _display_auto_trajectory(self) -> None:
         selected_auto = self._automodes.chooser.getSelected()

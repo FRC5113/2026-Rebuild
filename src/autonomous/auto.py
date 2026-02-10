@@ -50,6 +50,7 @@ class hub_outpost_shoot_climb(AutoBase):
 
 class hub_shoot(AutoBase):
     MODE_NAME = "Hub>Shoot"
+    DEFAULT = True
 
     def __init__(self):
         super().__init__(
