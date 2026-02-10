@@ -4,16 +4,17 @@ Uses Phoenix 6 units directly (rotations, rotations/sec) with WPILib controllers
 No unit conversion needed - tune with Phoenix values, use with WPILib.
 """
 
+import math
+from dataclasses import dataclass
+from enum import Enum
+from typing import Optional
+
 from wpimath.controller import (
     ArmFeedforward,
-    SimpleMotorFeedforwardMeters,
     ElevatorFeedforward,
     PIDController,
+    SimpleMotorFeedforwardMeters,
 )
-from dataclasses import dataclass
-from typing import Optional
-from enum import Enum
-import math
 
 
 class MechanismType(Enum):

@@ -13,6 +13,8 @@
 # Examples can be found at https://github.com/robotpy/examples
 
 import math
+import typing
+
 from phoenix6 import unmanaged
 from phoenix6.hardware.talon_fx import TalonFX
 from pyfrc.physics.core import PhysicsInterface
@@ -20,9 +22,6 @@ from pyfrc.physics.drivetrains import four_motor_swerve_drivetrain
 from wpilib.simulation import DCMotorSim
 from wpimath.geometry import Pose2d, Transform2d
 from wpimath.system.plant import DCMotor, LinearSystemId
-
-
-import typing
 
 if typing.TYPE_CHECKING:
     from robot import MyRobot

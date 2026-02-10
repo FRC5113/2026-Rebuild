@@ -1,17 +1,23 @@
 """
 Generic analytical tuning component using physics-based methods.
-Performs static friction measurement, step response tests, and Ziegler-Nichols tuning.
-Supports position and velocity control, with optional gravity compensation.
+Performs step response tests and Ziegler-Nichols tuning.
+Supports position and velocity control.
 """
 
 import math
 from typing import List, Optional
+
 import wpilib
-from wpilib import RobotBase, RuntimeType
 
 from ..smart import SmartNT
-from .motor_interface import MotorInterface, ControlMode
-from .tuning_data import MechanismTuningResults, MotorGains, ControlType, GravityType, TuningProfile
+from .motor_interface import ControlMode, MotorInterface
+from .tuning_data import (
+    ControlType,
+    GravityType,
+    MechanismTuningResults,
+    MotorGains,
+    TuningProfile,
+)
 
 
 class AnalyticalTuner:
@@ -47,9 +53,7 @@ class AnalyticalTuner:
         self.timer = wpilib.Timer()
 
         # Test state
-        self.current_test = (
-            "idle"  # idle, gravity, static_friction, step_pos, step_neg, oscillation
-        )
+        self.current_test = "idle"  # idle, step_pos, step_neg, oscillation
         self.processing_positive_step = True
 
     """
@@ -87,17 +91,16 @@ class AnalyticalTuner:
             gravity_type=gravity_type,
         )
 
-        # Start with gravity measurement if needed
-        if gravity_type != GravityType.NONE:
-            self.current_test = "gravity"
-        else:
-            self.current_test = "static_friction"
+        # Start with step response
+        self.current_test = "step_pos"
 
         self.processing_positive_step = True
         self.timer.restart()
         self._reset_data()
 
-        print(f"Analytical tuning started for {name} with profile {tuning_profile.name}")
+        print(
+            f"Analytical tuning started for {name} with profile {tuning_profile.name}"
+        )
 
     def stop(self) -> None:
         """Stop the current tuning process"""
@@ -156,147 +159,15 @@ class AnalyticalTuner:
     TEST METHODS
     """
 
-    def _test_gravity(self, elapsed: float):
-        """
-        Measure gravity compensation voltage.
-        For CONSTANT: voltage to hold position against gravity
-        For COSINE: voltage at horizontal position (90 degrees)
-        """
-        self._collect_data(elapsed)
-
-        if self.results.gravity_type == GravityType.CONSTANT:
-            # For elevators, slowly increase voltage until no movement
-            voltage = min(elapsed * 0.2, 2.0)  # Ramp up to 2V over 10 seconds
-            self.current_motor.set_control(ControlMode.VOLTAGE, voltage)
-
-            # Check if position is stable
-            if len(self.position_samples) > 20:
-                recent_positions = self.position_samples[-20:]
-                position_variance = sum(
-                    (p - sum(recent_positions) / len(recent_positions)) ** 2
-                    for p in recent_positions
-                ) / len(recent_positions)
-
-                if position_variance < 0.0001:  # Very stable
-                    self.results.gravity_voltage = voltage
-                    self.nt.put(f"{self.results.mechanism_name}/Gravity V", voltage)
-                    print(
-                        f"{self.results.mechanism_name} - Gravity voltage: {voltage:.3f}V"
-                    )
-                    self.current_test = "static_friction"
-                    self._reset_data()
-                    return
-
-        elif self.results.gravity_type == GravityType.COSINE:
-            # For arms, measure voltage at horizontal position
-            # Assuming mechanism is already at horizontal (user responsibility)
-            voltage = min(elapsed * 0.2, 2.0)
-            self.current_motor.set_control(ControlMode.VOLTAGE, voltage)
-
-            # Similar stability check
-            if len(self.position_samples) > 20:
-                recent_positions = self.position_samples[-20:]
-                position_variance = sum(
-                    (p - sum(recent_positions) / len(recent_positions)) ** 2
-                    for p in recent_positions
-                ) / len(recent_positions)
-
-                if position_variance < 0.0001:
-                    self.results.gravity_voltage = voltage
-                    self.nt.put(f"{self.results.mechanism_name}/Gravity V", voltage)
-                    print(
-                        f"{self.results.mechanism_name} - Gravity voltage (horizontal): {voltage:.3f}V"
-                    )
-                    self.current_test = "static_friction"
-                    self._reset_data()
-                    return
-
-        # Timeout or simulation
-        if elapsed > 15.0 or (
-            RobotBase.getRuntimeType() == RuntimeType.kSimulation and elapsed > 2.0
-        ):
-            if RobotBase.getRuntimeType() == RuntimeType.kSimulation:
-                self.results.gravity_voltage = 0.5
-            print(
-                f"{self.results.mechanism_name} - Gravity voltage (timeout/sim): {self.results.gravity_voltage:.3f}V"
-            )
-            self.current_test = "static_friction"
-            self._reset_data()
-
-    def _test_static_friction(self, elapsed: float):
-        """Measure static friction by gradually increasing voltage"""
-        self._collect_data(elapsed)
-
-        # Apply gravity compensation if needed
-        gravity_comp = 0.0
-        if self.results.gravity_type != GravityType.NONE:
-            if self.results.gravity_type == GravityType.CONSTANT:
-                gravity_comp = self.results.gravity_voltage
-            elif self.results.gravity_type == GravityType.COSINE:
-                # At horizontal, full gravity compensation
-                gravity_comp = self.results.gravity_voltage
-
-        # Gradually increase voltage
-        friction_voltage = min(elapsed * 0.5, 3.0)  # Ramp up to 3V over 6 seconds
-        total_voltage = gravity_comp + friction_voltage
-
-        self.nt.put("Static Voltage", total_voltage)
-        self.current_motor.set_control(ControlMode.VOLTAGE, total_voltage)
-
-        # Check if mechanism started moving
-        if len(self.position_samples) > 10:
-            recent_movement = abs(
-                self.position_samples[-1] - self.position_samples[-10]
-            )
-            if recent_movement > 0.01:  # Movement detected
-                # Found static friction point
-                self.results.static_friction_voltage = friction_voltage
-                self.nt.put(
-                    f"{self.results.mechanism_name}/Static Friction V", friction_voltage
-                )
-                print(
-                    f"{self.results.mechanism_name} - Static friction: {friction_voltage:.3f}V"
-                )
-
-                # Move to step response
-                self.current_test = "step_pos"
-                self.processing_positive_step = True
-                self._reset_data()
-                return
-
-        # Timeout or simulation mode
-        if elapsed > 10.0 or (
-            RobotBase.getRuntimeType() == RuntimeType.kSimulation and elapsed > 2.0
-        ):
-            self.results.static_friction_voltage = friction_voltage
-            self.nt.put(
-                f"{self.results.mechanism_name}/Static Friction V", friction_voltage
-            )
-            print(
-                f"{self.results.mechanism_name} - Static friction (timeout/sim): {friction_voltage:.3f}V"
-            )
-            self.current_test = "step_pos"
-            self.processing_positive_step = True
-            self._reset_data()
-
     def _test_step_response(self, elapsed: float, positive: bool):
         """Execute step response test"""
         self._collect_data(elapsed)
 
-        # Apply gravity compensation
-        gravity_comp = 0.0
-        if self.results.gravity_type == GravityType.CONSTANT:
-            gravity_comp = self.results.gravity_voltage
-        elif self.results.gravity_type == GravityType.COSINE:
-            # Approximate - assumes near horizontal
-            gravity_comp = self.results.gravity_voltage
-
         # Apply step input
         step_voltage = self.test_voltage if positive else -self.test_voltage
-        total_voltage = gravity_comp + step_voltage
 
-        self.current_motor.set_control(ControlMode.VOLTAGE, total_voltage)
-        self.nt.put("Step Voltage", total_voltage)
+        self.current_motor.set_control(ControlMode.VOLTAGE, step_voltage)
+        self.nt.put("Step Voltage", step_voltage)
 
         # Duration: 3 seconds
         if elapsed > 3.0:
@@ -325,16 +196,6 @@ class AnalyticalTuner:
         if len(self.position_samples) < 10 or len(self.velocity_samples) < 10:
             return
 
-        # Calculate max velocity
-        max_velocity = max(abs(v) for v in self.velocity_samples)
-
-        # Calculate max acceleration
-        max_acceleration = (
-            max(abs(a) for a in self.acceleration_samples)
-            if self.acceleration_samples
-            else 0.0
-        )
-
         # Find time constant (63.2% of final value)
         final_position = self.position_samples[-1]
         initial_position = self.position_samples[0]
@@ -353,30 +214,19 @@ class AnalyticalTuner:
         suffix = "pos" if positive else "neg"
         if positive:
             self.results.time_constant_pos = time_constant
-            self.results.max_velocity_pos = max_velocity
-            self.results.max_acceleration_pos = max_acceleration
         else:
             self.results.time_constant_neg = time_constant
-            self.results.max_velocity_neg = max_velocity
-            self.results.max_acceleration_neg = max_acceleration
 
         self.nt.put(
             f"{self.results.mechanism_name}/Time Constant {suffix}",
             time_constant or 0.0,
         )
-        self.nt.put(
-            f"{self.results.mechanism_name}/Max Velocity {suffix}", max_velocity
-        )
-        self.nt.put(
-            f"{self.results.mechanism_name}/Max Accel {suffix}", max_acceleration
-        )
 
-        print(
-            f"{self.results.mechanism_name} - Step response ({suffix}): "
-            f"tau={time_constant:.3f}s, max_vel={max_velocity:.3f}, max_accel={max_acceleration:.3f}"
-            if time_constant
-            else f"max_vel={max_velocity:.3f}, max_accel={max_acceleration:.3f}"
-        )
+        if time_constant:
+            print(
+                f"{self.results.mechanism_name} - Step response ({suffix}): "
+                f"tau={time_constant:.3f}s"
+            )
 
     def _test_oscillation(self, elapsed: float):
         """Test for oscillations using relay feedback (position control only)"""
@@ -387,20 +237,13 @@ class AnalyticalTuner:
         target_position = 0.0
         error = target_position - current_position
 
-        # Apply gravity compensation
-        gravity_comp = 0.0
-        if self.results.gravity_type == GravityType.CONSTANT:
-            gravity_comp = self.results.gravity_voltage
-        elif self.results.gravity_type == GravityType.COSINE:
-            gravity_comp = self.results.gravity_voltage
-
         # Relay with hysteresis
         if error > 0.05:
-            voltage = gravity_comp + self.oscillation_voltage
+            voltage = self.oscillation_voltage
         elif error < -0.05:
-            voltage = gravity_comp - self.oscillation_voltage
+            voltage = -self.oscillation_voltage
         else:
-            voltage = gravity_comp
+            voltage = 0.0
 
         self.current_motor.set_control(ControlMode.VOLTAGE, voltage)
         self.nt.put("Oscillation Voltage", voltage)
@@ -457,22 +300,6 @@ class AnalyticalTuner:
         """Calculate PID gains using Ziegler-Nichols system identification"""
         gains = self.results.analytical_gains
 
-        # Estimate kS from static friction
-        gains.kS = self.results.static_friction_voltage
-
-        # Estimate kV from max velocity
-        max_vel = max(self.results.max_velocity_pos, self.results.max_velocity_neg)
-        gains.kV = self.test_voltage / max_vel if max_vel > 0.1 else 0.12
-
-        # Estimate kA from max acceleration
-        max_accel = max(
-            self.results.max_acceleration_pos, self.results.max_acceleration_neg
-        )
-        gains.kA = self.test_voltage / max_accel if max_accel > 0.1 else 0.01
-
-        # Set kG from gravity measurement
-        gains.kG = self.results.gravity_voltage
-
         # Select tuning profile
         profile = self.tuning_profile
         if profile == TuningProfile.AUTO:
@@ -485,13 +312,9 @@ class AnalyticalTuner:
             self._apply_velocity_tuning(gains, profile)
 
         # Output to NetworkTables
-        self.nt.put(f"{self.results.mechanism_name}/Analytical kS", gains.kS)
-        self.nt.put(f"{self.results.mechanism_name}/Analytical kV", gains.kV)
-        self.nt.put(f"{self.results.mechanism_name}/Analytical kA", gains.kA)
         self.nt.put(f"{self.results.mechanism_name}/Analytical kP", gains.kP)
         self.nt.put(f"{self.results.mechanism_name}/Analytical kI", gains.kI)
         self.nt.put(f"{self.results.mechanism_name}/Analytical kD", gains.kD)
-        self.nt.put(f"{self.results.mechanism_name}/Analytical kG", gains.kG)
 
         print(
             f"{self.results.mechanism_name} - Analytical gains ({profile.name}): {gains}"
@@ -544,13 +367,13 @@ class AnalyticalTuner:
                     # No overshoot: Kp=0.2*Ku, Ki=0.4*Ku/Tu, Kd=(0.0666...)*Ku*Tu
                     gains.kP = 0.2 * Ku
                     gains.kI = 0.4 * Ku / Tu
-                    gains.kD = (2.0/30.0) * Ku * Tu  # 0.066...= 2/30 for precision
+                    gains.kD = (2.0 / 30.0) * Ku * Tu  # 0.066...= 2/30 for precision
 
                 elif profile == TuningProfile.SOME_OVERSHOOT:
                     # Some overshoot (1/3 rule): Kp=(0.333...)*Ku, Ki=(0.666...)*Ku/Tu, Kd=(0.111...)*Ku*Tu
-                    gains.kP = (1.0/3.0) * Ku  # 0.333... = 1/3
-                    gains.kI = (2.0/3.0) * Ku / Tu  # 0.666... = 2/3
-                    gains.kD = (1.0/9.0) * Ku * Tu  # 0.111... = 1/9
+                    gains.kP = (1.0 / 3.0) * Ku  # 0.333... = 1/3
+                    gains.kI = (2.0 / 3.0) * Ku / Tu  # 0.666... = 2/3
+                    gains.kD = (1.0 / 9.0) * Ku * Tu  # 0.111... = 1/9
                 else:  # PI (not ideal for position, but fallback)
                     gains.kP = 0.45 * Ku
                     gains.kI = 0.54 * Ku / Tu
@@ -604,13 +427,13 @@ class AnalyticalTuner:
                     # No overshoot: Kp=0.2*Ku, Ki=0.4*Ku/Tu, Kd=(0.0666...)*Ku*Tu
                     gains.kP = 0.2 * Ku
                     gains.kI = 0.4 * Ku / Tu
-                    gains.kD = (2.0/30.0) * Ku * Tu  # 0.0̄66...= 2/30 for precision
+                    gains.kD = (2.0 / 30.0) * Ku * Tu  # 0.0̄66...= 2/30 for precision
 
                 elif profile == TuningProfile.SOME_OVERSHOOT:
                     # Some overshoot (1/3 rule): Kp=(0.333...)*Ku, Ki=(0.666...)*Ku/Tu, Kd=(0.111...)*Ku*Tu
-                    gains.kP = (1.0/3.0) * Ku  # 0.333... = 1/3
-                    gains.kI = (2.0/3.0) * Ku / Tu  # 0.666... = 2/3
-                    gains.kD = (1.0/9.0) * Ku * Tu  # 0.111... = 1/9
+                    gains.kP = (1.0 / 3.0) * Ku  # 0.333... = 1/3
+                    gains.kI = (2.0 / 3.0) * Ku / Tu  # 0.666... = 2/3
+                    gains.kD = (1.0 / 9.0) * Ku * Tu  # 0.111... = 1/9
 
                 elif profile == TuningProfile.PD:
                     # PD for velocity (unusual but possible)
@@ -646,11 +469,7 @@ class AnalyticalTuner:
         elapsed = self.timer.get()
 
         # Run the current test
-        if self.current_test == "gravity":
-            self._test_gravity(elapsed)
-        elif self.current_test == "static_friction":
-            self._test_static_friction(elapsed)
-        elif self.current_test == "step_pos":
+        if self.current_test == "step_pos":
             self._test_step_response(elapsed, positive=True)
         elif self.current_test == "step_neg":
             self._test_step_response(elapsed, positive=False)

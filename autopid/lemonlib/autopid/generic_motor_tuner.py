@@ -4,22 +4,30 @@ Supports TalonFX and SparkMax motors, position and velocity control,
 and various gravity compensation types.
 """
 
-from typing import Optional, Callable
 from enum import Enum, auto
+from typing import Callable, Optional
+
 import wpilib
 from wpimath import units
 
-from .motor_interface import (
-    MotorInterface,
-    TalonFXInterface,
-    WPIMotorControllerInterface,
-    ControlMode,
-    SparkMaxInterface,
-    TalonFXSInterface,
-)
-from .tuning_data import ControlType, GravityType, MotorGains, MechanismTuningResults,TuningProfile
 from .analytical_tuner import AnalyticalTuner
+from .motor_interface import (
+    ControlMode,
+    MotorInterface,
+    SparkMaxInterface,
+    TalonFXInterface,
+    TalonFXSInterface,
+    WPIMotorControllerInterface,
+)
 from .trial_error_tuner import TrialErrorTuner
+from .tuning_data import (
+    ControlType,
+    FeedforwardGains,
+    GravityType,
+    MechanismTuningResults,
+    MotorGains,
+    TuningProfile,
+)
 
 
 class TuningState(Enum):
@@ -92,8 +100,9 @@ class GenericMotorTuner:
         motor,
         control_type: ControlType,
         name: str,
-        tuning_profile = TuningProfile.AUTO,
+        tuning_profile=TuningProfile.AUTO,
         motor_interface: Optional[MotorInterface] = None,
+        feedforward_gains: Optional[FeedforwardGains] = None,
         gravity_type: GravityType = GravityType.NONE,
         position_getter: Optional[Callable[[], float]] = None,
         velocity_getter: Optional[Callable[[], units.meters_per_second]] = None,
@@ -106,8 +115,11 @@ class GenericMotorTuner:
             motor: TalonFX or SparkMax motor object
             control_type: POSITION or VELOCITY control
             name: Human-readable name for the mechanism
+            motor_interface: Optional MotorInterface override
+            feedforward_gains: Optional feedforward gains to apply while tuning PID
             gravity_type: Type of gravity compensation (NONE, CONSTANT, COSINE)
             position_getter: Optional custom position getter function
+            velocity_getter: Optional custom velocity getter function
             conversion_factor: For SparkMax, conversion from encoder units to mechanism units
         """
         # Create motor interface
@@ -132,6 +144,7 @@ class GenericMotorTuner:
         self.analytical_tuner.setup()
         self.trial_tuner.setup()
 
+        self.feedforward_gains = feedforward_gains or FeedforwardGains()
         # Results
         self.results: Optional[MechanismTuningResults] = None
 
@@ -183,21 +196,25 @@ class GenericMotorTuner:
         self.timeout_seconds = timeout_seconds
         self.start_time = wpilib.Timer.getFPGATimestamp()
 
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(f"Starting Auto-Tune for: {self.name}")
         print(f"Control Type: {self.control_type.value}")
         print(f"Gravity Type: {self.gravity_type.value}")
         print(
             f"Motor: {self.motor_interface.get_motor_type().value} (ID: {self.motor_interface.get_motor_id()})"
         )
-        print(f"{'='*70}\n")
+        print(f"{'=' * 70}\n")
 
         # Start with analytical tuning if enabled
         if use_analytical:
             self.state = TuningState.ANALYTICAL_TUNING
             print(f"[{self.name}] Starting analytical tuning...")
             self.analytical_tuner.start(
-                self.motor_interface, self.control_type, self.gravity_type, self.name, self.tuning_profile
+                self.motor_interface,
+                self.control_type,
+                self.gravity_type,
+                self.name,
+                self.tuning_profile,
             )
         elif use_trial:
             self._start_trial_tuning()
@@ -210,7 +227,6 @@ class GenericMotorTuner:
         Execute one iteration of the tuning state machine.
         Call this repeatedly from your robot's periodic method until is_complete() returns True.
         """
-        # Check timeout
         if wpilib.Timer.getFPGATimestamp() - self.start_time > self.timeout_seconds:
             print(f"[{self.name}] Tuning timed out")
             self._finalize_tuning()
@@ -234,7 +250,6 @@ class GenericMotorTuner:
                         control_type=self.control_type,
                         gravity_type=self.gravity_type,
                     )
-
                 # Move to trial tuning if enabled
                 if self.use_trial:
                     self._start_trial_tuning()
@@ -276,11 +291,13 @@ class GenericMotorTuner:
             self.gravity_type,
             self.name,
             analytical_gains,
+            self.feedforward_gains,
         )
 
     def _finalize_tuning(self):
         """Complete the tuning process and apply gains"""
         if self.results:
+            self.results.feedforward_gains = self.feedforward_gains
             # Select final gains (prefer trial if available, otherwise analytical)
             self.results.select_final_gains(use_trial=self.use_trial)
 
@@ -313,13 +330,13 @@ class GenericMotorTuner:
         if self.results and self.results.final_gains:
             gains = self.results.final_gains
             success = self.motor_interface.apply_gains(
-                kS=gains.kS,
-                kV=gains.kV,
-                kA=gains.kA,
                 kP=gains.kP,
                 kI=gains.kI,
                 kD=gains.kD,
-                kG=gains.kG,
+                kS=self.feedforward_gains.kS,
+                kV=self.feedforward_gains.kV,
+                kA=self.feedforward_gains.kA,
+                kG=self.feedforward_gains.kG,
             )
 
             if success:
@@ -343,13 +360,13 @@ class GenericMotorTuner:
     def apply_gains(self, gains: MotorGains) -> bool:
         """Apply a set of gains to the motor"""
         return self.motor_interface.apply_gains(
-            kS=gains.kS,
-            kV=gains.kV,
-            kA=gains.kA,
+            kS=self.feedforward_gains.kS,
+            kV=self.feedforward_gains.kV,
+            kA=self.feedforward_gains.kA,
             kP=gains.kP,
             kI=gains.kI,
             kD=gains.kD,
-            kG=gains.kG,
+            kG=self.feedforward_gains.kG,
         )
 
 
@@ -360,6 +377,7 @@ def tune_swerve_module(
     motor,
     name: str = "Swerve Module",
     position_getter: Optional[Callable[[], float]] = None,
+    feedforward_gains: Optional[FeedforwardGains] = None,
 ) -> GenericMotorTuner:
     """
     Create a tuner for a swerve steering module.
@@ -369,6 +387,7 @@ def tune_swerve_module(
         motor: TalonFX or SparkMax motor
         name: Name for the module
         position_getter: Optional custom position getter
+        feedforward_gains: Optional feedforward gains to use during PID tuning
 
     Returns:
         GenericMotorTuner configured for swerve module
@@ -378,10 +397,15 @@ def tune_swerve_module(
         control_type=ControlType.POSITION,
         name=name,
         position_getter=position_getter,
+        feedforward_gains=feedforward_gains,
     )
 
 
-def tune_flywheel(motor, name: str = "Flywheel") -> GenericMotorTuner:
+def tune_flywheel(
+    motor,
+    name: str = "Flywheel",
+    feedforward_gains: Optional[FeedforwardGains] = None,
+) -> GenericMotorTuner:
     """
     Create a tuner for a shooter flywheel.
     Call start_tuning() and periodic() on the returned tuner.
@@ -389,15 +413,24 @@ def tune_flywheel(motor, name: str = "Flywheel") -> GenericMotorTuner:
     Args:
         motor: TalonFX or SparkMax motor
         name: Name for the flywheel
+        feedforward_gains: Optional feedforward gains to use during PID tuning
 
     Returns:
         GenericMotorTuner configured for flywheel
     """
-    return GenericMotorTuner(motor=motor, control_type=ControlType.VELOCITY, name=name)
+    return GenericMotorTuner(
+        motor=motor,
+        control_type=ControlType.VELOCITY,
+        name=name,
+        feedforward_gains=feedforward_gains,
+    )
 
 
 def tune_hood(
-    motor, name: str = "Hood", position_getter: Optional[Callable[[], float]] = None
+    motor,
+    name: str = "Hood",
+    position_getter: Optional[Callable[[], float]] = None,
+    feedforward_gains: Optional[FeedforwardGains] = None,
 ) -> GenericMotorTuner:
     """
     Create a tuner for a shooter hood or similar mechanism.
@@ -407,6 +440,7 @@ def tune_hood(
         motor: TalonFX or SparkMax motor
         name: Name for the hood
         position_getter: Optional custom position getter
+        feedforward_gains: Optional feedforward gains to use during PID tuning
 
     Returns:
         GenericMotorTuner configured for hood
@@ -416,11 +450,15 @@ def tune_hood(
         control_type=ControlType.POSITION,
         name=name,
         position_getter=position_getter,
+        feedforward_gains=feedforward_gains,
     )
 
 
 def tune_elevator(
-    motor, name: str = "Elevator", position_getter: Optional[Callable[[], float]] = None
+    motor,
+    name: str = "Elevator",
+    position_getter: Optional[Callable[[], float]] = None,
+    feedforward_gains: Optional[FeedforwardGains] = None,
 ) -> GenericMotorTuner:
     """
     Create a tuner for an elevator with constant gravity compensation.
@@ -430,6 +468,7 @@ def tune_elevator(
         motor: TalonFX or SparkMax motor
         name: Name for the elevator
         position_getter: Optional custom position getter (e.g., for height in meters)
+        feedforward_gains: Optional feedforward gains to use during PID tuning
 
     Returns:
         GenericMotorTuner configured for elevator
@@ -440,6 +479,7 @@ def tune_elevator(
         gravity_type=GravityType.CONSTANT,
         name=name,
         position_getter=position_getter,
+        feedforward_gains=feedforward_gains,
     )
 
 
@@ -447,6 +487,7 @@ def tune_arm(
     motor,
     name: str = "Arm Pivot",
     position_getter: Optional[Callable[[], float]] = None,
+    feedforward_gains: Optional[FeedforwardGains] = None,
 ) -> GenericMotorTuner:
     """
     Create a tuner for an arm pivot with cosine gravity compensation.
@@ -456,6 +497,7 @@ def tune_arm(
         motor: TalonFX or SparkMax motor
         name: Name for the arm
         position_getter: Optional custom position getter (e.g., for angle in radians)
+        feedforward_gains: Optional feedforward gains to use during PID tuning
 
     Returns:
         GenericMotorTuner configured for arm
@@ -466,4 +508,5 @@ def tune_arm(
         gravity_type=GravityType.COSINE,
         name=name,
         position_getter=position_getter,
+        feedforward_gains=feedforward_gains,
     )

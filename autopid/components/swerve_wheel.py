@@ -1,34 +1,26 @@
 import math
 from typing import List
 
-from phoenix6 import controls, StatusSignal, BaseStatusSignal
+from magicbot import will_reset_to
+from phoenix6 import BaseStatusSignal, StatusSignal, controls
 from phoenix6.configs import (
-    TalonFXConfiguration,
     CANcoderConfiguration,
-)
-from phoenix6.hardware import CANcoder, TalonFX
-from phoenix6.signals import (
-    NeutralModeValue,
-    SensorDirectionValue,
-    FeedbackSensorSourceValue,
-)
-from phoenix6.configs import (
     ClosedLoopGeneralConfigs,
     FeedbackConfigs,
     TalonFXConfiguration,
 )
 from phoenix6.hardware import CANcoder, TalonFX
-from phoenix6.signals import NeutralModeValue
-
-
+from phoenix6.signals import (
+    FeedbackSensorSourceValue,
+    NeutralModeValue,
+    SensorDirectionValue,
+)
 from wpimath import units
 from wpimath.geometry import Rotation2d
 from wpimath.kinematics import SwerveModulePosition, SwerveModuleState
-
 from wpiutil import Sendable
-from magicbot import will_reset_to
-from lemonlib.smart import SmartPreference, SmartProfile
-from lemonlib.smart import SmartNT
+
+from lemonlib.smart import SmartNT, SmartPreference, SmartProfile
 
 
 class SwerveWheel(Sendable):

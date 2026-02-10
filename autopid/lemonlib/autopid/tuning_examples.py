@@ -14,14 +14,13 @@ All examples use the new non-blocking state machine API that integrates with Rob
 
 from .generic_motor_tuner import (
     GenericMotorTuner,
-    tune_swerve_module,
+    tune_arm,
+    tune_elevator,
     tune_flywheel,
     tune_hood,
-    tune_elevator,
-    tune_arm,
+    tune_swerve_module,
 )
-from .tuning_data import ControlType, GravityType, MotorGains
-from .motor_interface import TalonFXInterface, SparkMaxInterface
+from .tuning_data import ControlType, FeedforwardGains, GravityType, MotorGains
 
 
 def example_tune_swerve_module_simple(swerve_module):
@@ -34,17 +33,17 @@ def example_tune_swerve_module_simple(swerve_module):
         motor=swerve_module.direction_motor,
         name=f"Swerve Module {swerve_module.direction_motor.device_id}",
     )
-    
+
     # Start tuning (call once)
     tuner.start_tuning(use_analytical=True, use_trial=True)
-    
+
     # In your periodic loop, call:
     # if not tuner.is_complete():
     #     tuner.periodic()
     # else:
     #     gains = tuner.get_final_gains()
     #     print(f"Tuned gains: {gains}")
-    
+
     return tuner
 
 
@@ -56,13 +55,13 @@ def example_tune_swerve_module_custom(swerve_module):
     tuner = GenericMotorTuner(
         motor=swerve_module.direction_motor,
         control_type=ControlType.POSITION,
-        name=f"Swerve Module FL",
+        name="Swerve Module FL",
         position_getter=lambda: swerve_module.getPosition().angle.radians(),
     )
 
     # Start both analytical and trial tuning
     tuner.start_tuning(use_analytical=True, use_trial=True)
-    
+
     # In your periodic loop:
     # if not tuner.is_complete():
     #     tuner.periodic()
@@ -77,12 +76,17 @@ def example_tune_flywheel_simple(shooter):
     """
     Simple example: Create a flywheel tuner.
     """
-    tuner = tune_flywheel(motor=shooter.flywheel_motor, name="Shooter Flywheel")
+    ff_gains = FeedforwardGains(kS=0.2, kV=0.12, kA=0.01)
+    tuner = tune_flywheel(
+        motor=shooter.flywheel_motor,
+        name="Shooter Flywheel",
+        feedforward_gains=ff_gains,
+    )
     tuner.start_tuning()
-    
+
     # In periodic: tuner.periodic() until tuner.is_complete()
     # Then: gains = tuner.get_final_gains()
-    
+
     return tuner
 
 
@@ -98,7 +102,7 @@ def example_tune_flywheel_analytical_only(shooter):
 
     # Only analytical tuning
     tuner.start_tuning(use_analytical=True, use_trial=False, timeout_seconds=60.0)
-    
+
     # In periodic: tuner.periodic() until tuner.is_complete()
 
     return tuner
@@ -111,11 +115,13 @@ def example_tune_dual_flywheels(shooter):
     """
     # Create tuners for both flywheels
     top_tuner = tune_flywheel(motor=shooter.top_flywheel_motor, name="Top Flywheel")
-    bottom_tuner = tune_flywheel(motor=shooter.bottom_flywheel_motor, name="Bottom Flywheel")
-    
+    bottom_tuner = tune_flywheel(
+        motor=shooter.bottom_flywheel_motor, name="Bottom Flywheel"
+    )
+
     # Start first tuner (in your code, start second after first completes)
     top_tuner.start_tuning()
-    
+
     return top_tuner, bottom_tuner
 
 
@@ -125,7 +131,7 @@ def example_tune_hood(shooter):
     """
     tuner = tune_hood(motor=shooter.hood_motor, name="Shooter Hood")
     tuner.start_tuning(use_trial=False)  # Analytical only
-    
+
     return tuner
 
 
@@ -156,11 +162,10 @@ def example_tune_elevator(elevator):
         position_getter=lambda: elevator.get_height(),  # Returns height in meters
     )
     tuner.start_tuning()
-    
+
     # After tuner.is_complete():
     # gains = tuner.get_final_gains()
-    # print(f"Elevator gains (with kG for gravity): {gains}")
-    # print(f"  kG (gravity compensation): {gains.kG:.4f} V")
+    # print(f"Elevator gains: {gains}")
 
     return tuner
 
@@ -192,11 +197,10 @@ def example_tune_arm_pivot(arm):
         position_getter=lambda: arm.get_angle(),  # Returns angle in radians
     )
     tuner.start_tuning()
-    
+
     # After tuner.is_complete():
     # gains = tuner.get_final_gains()
-    # print(f"Arm gains (with kG for gravity): {gains}")
-    # print(f"  kG (gravity at horizontal): {gains.kG:.4f} V")
+    # print(f"Arm gains: {gains}")
 
     return tuner
 
@@ -207,7 +211,7 @@ def example_tune_arm_with_prep(arm):
 
     Important: For cosine gravity compensation, the arm should be
     positioned horizontally before tuning begins.
-    
+
     Note: The preparation should be done in your robot code before calling start_tuning().
     """
     # Move arm to horizontal position first (do this in your robot periodic before starting tuner)
@@ -241,15 +245,15 @@ def example_tune_custom_mechanism(mechanism):
 
     # Start tuning with custom timeout
     tuner.start_tuning(
-        use_analytical=True, use_trial=True, timeout_seconds=120.0  # 2 minute timeout
+        use_analytical=True,
+        use_trial=True,
+        timeout_seconds=120.0,  # 2 minute timeout
     )
-    
+
     # After tuner.is_complete():
     # results = tuner.get_results()
     # if results:
     #     print(f"\nDetailed Results for {mechanism}:")
-    #     print(f"  Static Friction: {results.static_friction_voltage:.3f} V")
-    #     print(f"  Max Velocity: {results.max_velocity_pos:.3f} units/s")
     #     print(f"  Time Constant: {results.time_constant_pos:.3f} s")
     #     results.print_comparison()
 
@@ -278,7 +282,7 @@ def example_batch_tune_all_swerve_modules(drivetrain):
             position_getter=lambda m=module: m.getPosition().angle.radians(),
         )
         all_tuners[name] = tuner
-    
+
     # In your robot code, start and run these sequentially:
     # 1. Start first tuner: all_tuners["Front Left"].start_tuning()
     # 2. In periodic: if not tuner.is_complete(): tuner.periodic()
@@ -302,7 +306,9 @@ def example_tune_complete_robot(robot):
     # Create shooter tuners
     print("### CREATING SHOOTER TUNERS ###")
     tuners["flywheel_top"] = tune_flywheel(robot.shooter.top_motor, "Top Flywheel")
-    tuners["flywheel_bottom"] = tune_flywheel(robot.shooter.bottom_motor, "Bottom Flywheel")
+    tuners["flywheel_bottom"] = tune_flywheel(
+        robot.shooter.bottom_motor, "Bottom Flywheel"
+    )
     tuners["hood"] = tune_hood(robot.shooter.hood_motor, "Hood")
 
     # Create elevator tuner
@@ -320,12 +326,19 @@ def example_tune_complete_robot(robot):
     return tuners
 
 
-def example_apply_saved_gains(motor, gains: MotorGains):
+def example_apply_saved_gains(
+    motor,
+    gains: MotorGains,
+    feedforward_gains: FeedforwardGains | None = None,
+):
     """
     Apply previously tuned gains to a motor.
     """
     tuner = GenericMotorTuner(
-        motor=motor, control_type=ControlType.POSITION, name="Mechanism"  # Or VELOCITY
+        motor=motor,
+        control_type=ControlType.POSITION,
+        name="Mechanism",  # Or VELOCITY
+        feedforward_gains=feedforward_gains,
     )
 
     success = tuner.apply_gains(gains)
@@ -348,16 +361,22 @@ def example_load_and_apply_gains(motor, filename: str):
         data = json.load(f)
 
     gains = MotorGains(
-        kS=data["final_gains"]["kS"],
-        kV=data["final_gains"]["kV"],
-        kA=data["final_gains"]["kA"],
         kP=data["final_gains"]["kP"],
         kI=data["final_gains"]["kI"],
         kD=data["final_gains"]["kD"],
-        kG=data["final_gains"]["kG"],
     )
 
-    return example_apply_saved_gains(motor, gains)
+    ff_data = data.get("feedforward_gains")
+    ff_gains = None
+    if ff_data:
+        ff_gains = FeedforwardGains(
+            kS=ff_data.get("kS", 0.0),
+            kV=ff_data.get("kV", 0.0),
+            kA=ff_data.get("kA", 0.0),
+            kG=ff_data.get("kG", 0.0),
+        )
+
+    return example_apply_saved_gains(motor, gains, ff_gains)
 
 
 def example_incremental_tuning(mechanism):
@@ -371,7 +390,7 @@ def example_incremental_tuning(mechanism):
     )
 
     tuner.start_tuning(use_analytical=True, use_trial=False, timeout_seconds=60.0)
-    
+
     # In your periodic loop, run until complete:
     # while not tuner.is_complete():
     #     tuner.periodic()
@@ -390,7 +409,8 @@ def example_mixed_controllers(robot):
     """
     # TalonFX swerve modules
     swerve_tuner = tune_swerve_module(
-        motor=robot.drivetrain.front_left.direction_motor, name="Swerve FL"  # TalonFX
+        motor=robot.drivetrain.front_left.direction_motor,
+        name="Swerve FL",  # TalonFX
     )
 
     # SparkMax elevator
@@ -404,7 +424,7 @@ def example_mixed_controllers(robot):
 
     # TalonFX arm
     arm_tuner = tune_arm(motor=robot.arm.talon_motor, name="Arm Pivot")  # TalonFX
-    
+
     # Start them sequentially in your periodic loop
     return {"swerve": swerve_tuner, "elevator": elevator_tuner, "arm": arm_tuner}
 

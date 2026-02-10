@@ -1,22 +1,15 @@
 import wpilib
+from lemonlib.autopid import tune_swerve_module
+from lemonlib.autopid.tuning_data import (
+    FeedforwardGains,
+)
 from magicbot import MagicRobot
-from wpimath.geometry import Rotation2d
-from wpimath import units
-from phoenix6.hardware import CANcoder, TalonFX
 from phoenix6 import CANBus
+from phoenix6.hardware import CANcoder, TalonFX
+from wpimath import units
 
 from components.swerve_wheel import SwerveWheel
 from lemonlib.smart import SmartProfile
-from lemonlib.autopid.generic_motor_tuner import (
-    GenericMotorTuner,
-    tune_swerve_module,
-    tune_flywheel,
-    tune_hood,
-    tune_elevator,
-    tune_arm,
-)
-from lemonlib.autopid.tuning_data import ControlType, GravityType, MotorGains
-from lemonlib.autopid.motor_interface import TalonFXInterface, SparkMaxInterface
 
 
 class MyRobot(MagicRobot):
@@ -42,8 +35,8 @@ class MyRobot(MagicRobot):
         self.rear_left_cancoder = CANcoder(43, self.canicore_canbus)
 
         # Configure module parameters (adjust these for your robot)
-        self.wheel_radius = 0.05
-        self.drive_gear_ratio = 1 / ((14.0 / 50.0) * (27.0 / 17.0) * (15.0 / 45.0))
+        self.wheel_radius = 0.0508
+        self.drive_gear_ratio = 6.75
         self.direction_gear_ratio = 150.0 / 7.0
         self.direction_amps: units.amperes = 40.0
         self.speed_amps: units.amperes = 60.0
@@ -74,6 +67,8 @@ class MyRobot(MagicRobot):
         self.previous_state = None
         self.state = None
 
+        self.feedforward_gains = FeedforwardGains(kS=0.14, kV=0.375)
+
     def teleopPeriodic(self):
         """Called periodically during teleop mode"""
 
@@ -83,6 +78,7 @@ class MyRobot(MagicRobot):
             self.tuner_instance = tune_swerve_module(
                 self.rear_left.direction_motor,
                 "rear_left_direction_motor",
+                feedforward_gains=self.feedforward_gains,
             )
             self.tuner_instance.start_tuning(
                 use_analytical=True, use_trial=True, timeout_seconds=180.0

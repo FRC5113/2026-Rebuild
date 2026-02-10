@@ -3,31 +3,33 @@ Generic motor interface for tuning different motor controllers.
 Abstracts TalonFX and SparkMax control methods.
 """
 
+import math
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Optional, Callable
-import math
-from phoenix6.hardware import TalonFX, TalonFXS
-from phoenix6 import controls
+from typing import Callable, Optional
+
 import wpilib
-from wpilib.interfaces import MotorController
+from phoenix6 import controls
 from phoenix6.configs import Slot0Configs
+from phoenix6.hardware import TalonFX, TalonFXS
 from phoenix6.signals import GravityTypeValue, StaticFeedforwardSignValue
-from wpimath.trajectory import TrapezoidProfile, TrapezoidProfileRadians
+from rev import PersistMode, ResetMode, SparkMax, SparkMaxConfig
+from wpilib.interfaces import MotorController
+from wpimath import units
 from wpimath.controller import (
     ArmFeedforward,
-    SimpleMotorFeedforwardMeters,
-    SimpleMotorFeedforwardRadians,
     ElevatorFeedforward,
     PIDController,
     ProfiledPIDController,
     ProfiledPIDControllerRadians,
+    SimpleMotorFeedforwardMeters,
+    SimpleMotorFeedforwardRadians,
 )
-from rev import SparkMax, SparkMaxConfig, ResetMode, PersistMode
-from wpimath import units
 from wpimath.geometry import Rotation2d
+from wpimath.trajectory import TrapezoidProfile, TrapezoidProfileRadians
+
+from ..ctre.gains import MechanismType, PhoenixGains, PhoenixWPILibController
 from .tuning_data import GravityType
-from ..ctre.gains import PhoenixGains, MechanismType, PhoenixWPILibController
 
 
 class MotorType(Enum):

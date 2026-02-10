@@ -3,8 +3,8 @@ Shared data structures for generic motor tuning components.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, Optional
 from enum import Enum
+from typing import Dict, Optional
 
 
 class ControlType(Enum):
@@ -38,31 +38,38 @@ class TuningProfile(Enum):
 class MotorGains:
     """Complete set of motor gains"""
 
-    kS: float = 0.0  # Static friction feedforward (Volts)
-    kV: float = 0.0  # Velocity feedforward (V/(unit/s))
-    kA: float = 0.0  # Acceleration feedforward (V/(unit/s²))
     kP: float = 0.0  # Proportional gain
     kI: float = 0.0  # Integral gain
     kD: float = 0.0  # Derivative gain
-    kG: float = 0.0  # Gravity feedforward (Volts)
 
     def to_dict(self) -> Dict:
         """Convert to dictionary for NetworkTables or JSON export"""
         return {
-            "kS": self.kS,
-            "kV": self.kV,
-            "kA": self.kA,
             "kP": self.kP,
             "kI": self.kI,
             "kD": self.kD,
-            "kG": self.kG,
         }
 
     def __str__(self) -> str:
-        return (
-            f"kS={self.kS:.4f}, kV={self.kV:.4f}, kA={self.kA:.4f}, "
-            f"kP={self.kP:.4f}, kI={self.kI:.4f}, kD={self.kD:.4f}, kG={self.kG:.4f}"
-        )
+        return f"kP={self.kP:.4f}, kI={self.kI:.4f}, kD={self.kD:.4f}"
+
+
+@dataclass
+class FeedforwardGains:
+    """Feedforward gains (optional)"""
+
+    kS: float = 0.0  # Static friction feedforward
+    kV: float = 0.0  # Velocity feedforward
+    kA: float = 0.0  # Acceleration feedforward
+    kG: float = 0.0  # Gravity feedforward
+
+    def to_dict(self) -> Dict:
+        return {
+            "kS": self.kS,
+            "kV": self.kV,
+            "kA": self.kA,
+            "kG": self.kG,
+        }
 
 
 @dataclass
@@ -74,23 +81,13 @@ class MechanismTuningResults:
     control_type: ControlType
     gravity_type: GravityType
 
-    # Static friction measurement
-    static_friction_voltage: float = 0.0
-
     # Step response data
     time_constant_pos: Optional[float] = None
     time_constant_neg: Optional[float] = None
-    max_velocity_pos: float = 0.0
-    max_velocity_neg: float = 0.0
-    max_acceleration_pos: float = 0.0
-    max_acceleration_neg: float = 0.0
 
     # Oscillation test data
     oscillation_period: Optional[float] = None
     oscillation_amplitude: Optional[float] = None
-
-    # Gravity measurement (for CONSTANT and COSINE types)
-    gravity_voltage: float = 0.0
 
     # Analytical gains
     analytical_gains: MotorGains = field(default_factory=MotorGains)
@@ -101,6 +98,9 @@ class MechanismTuningResults:
     # Final selected gains
     final_gains: MotorGains = field(default_factory=MotorGains)
 
+    # Feedforward gains used during tuning (optional)
+    feedforward_gains: FeedforwardGains = field(default_factory=FeedforwardGains)
+
     def select_final_gains(self, use_trial: bool = True):
         """
         Select final gains from either analytical or trial results.
@@ -110,23 +110,15 @@ class MechanismTuningResults:
         """
         if use_trial:
             self.final_gains = MotorGains(
-                kS=self.trial_gains.kS,
-                kV=self.trial_gains.kV,
-                kA=self.trial_gains.kA,
                 kP=self.trial_gains.kP,
                 kI=self.trial_gains.kI,
                 kD=self.trial_gains.kD,
-                kG=self.trial_gains.kG,
             )
         else:
             self.final_gains = MotorGains(
-                kS=self.analytical_gains.kS,
-                kV=self.analytical_gains.kV,
-                kA=self.analytical_gains.kA,
                 kP=self.analytical_gains.kP,
                 kI=self.analytical_gains.kI,
                 kD=self.analytical_gains.kD,
-                kG=self.analytical_gains.kG,
             )
 
     def to_dict(self) -> Dict:
@@ -136,19 +128,14 @@ class MechanismTuningResults:
             "mechanism_name": self.mechanism_name,
             "control_type": self.control_type.value,
             "gravity_type": self.gravity_type.value,
-            "static_friction_voltage": self.static_friction_voltage,
             "time_constant_pos": self.time_constant_pos,
             "time_constant_neg": self.time_constant_neg,
-            "max_velocity_pos": self.max_velocity_pos,
-            "max_velocity_neg": self.max_velocity_neg,
-            "max_acceleration_pos": self.max_acceleration_pos,
-            "max_acceleration_neg": self.max_acceleration_neg,
             "oscillation_period": self.oscillation_period,
             "oscillation_amplitude": self.oscillation_amplitude,
-            "gravity_voltage": self.gravity_voltage,
             "analytical_gains": self.analytical_gains.to_dict(),
             "trial_gains": self.trial_gains.to_dict(),
             "final_gains": self.final_gains.to_dict(),
+            "feedforward_gains": self.feedforward_gains.to_dict(),
         }
 
     def print_comparison(self):
@@ -159,10 +146,10 @@ class MechanismTuningResults:
         print(
             f"Control Type: {self.control_type.value}, Gravity Type: {self.gravity_type.value}"
         )
-        print(f"\nAnalytical Method:")
+        print("\nAnalytical Method:")
         print(f"  {self.analytical_gains}")
-        print(f"\nTrial-and-Error Method:")
+        print("\nTrial-and-Error Method:")
         print(f"  {self.trial_gains}")
-        print(f"\nFinal Selected Gains:")
+        print("\nFinal Selected Gains:")
         print(f"  {self.final_gains}")
-        print(f"=" * 70 + "\n")
+        print("=" * 70 + "\n")
