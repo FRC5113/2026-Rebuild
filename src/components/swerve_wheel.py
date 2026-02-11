@@ -314,11 +314,11 @@ class SwerveWheel(Sendable):
             return
 
         # Use absolute angle to align with fused CANcoder feedback
-        # current_angle = Rotation2d.fromRotations(
-        #     self.cancoder.get_absolute_position().value
-        # )
+        current_angle = Rotation2d.fromRotations(
+            self.cancoder.get_absolute_position().value
+        )
 
-        current_angle = self.swerve_module_position.angle
+        # current_angle = self.swerve_module_position.angle
 
         # Optimize flips the wheel direction if it's faster than rotating 180 degrees
         state.optimize(current_angle)
@@ -336,7 +336,7 @@ class SwerveWheel(Sendable):
         self.speed_motor.set_control(self.speed_control.with_velocity(target_speed))
 
         # Convert radians back to rotations for motor control (wrap to [-0.5, 0.5])
-        target_rotations = math.remainder(target_angle / math.tau, 1.0)
+        target_rotations = math.remainder(target_angle / math.tau, 2.0)
         self.direction_motor.set_control(
-            self.direction_control.with_position(target_rotations)
+            self.direction_control.with_position(target_angle / math.tau)
         )
