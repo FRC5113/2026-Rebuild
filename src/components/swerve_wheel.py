@@ -46,6 +46,8 @@ class SwerveWheel(Sendable):
     angle_deadband = SmartPreference(0.0349)  # ~2 degrees in radians
 
     doing_sysid = will_reset_to(False)
+    sysid_rot = will_reset_to(False)
+    sysid_volts = will_reset_to(0.0)
 
     signals: List[StatusSignal] = []
 
@@ -220,10 +222,9 @@ class SwerveWheel(Sendable):
         return self.speed_motor.get_motor_voltage().value
 
     def getVelocity(self):
-        return (
-            self.speed_motor.get_velocity().value
-            * (self.wheel_radius * 2 * math.pi)  # Convert wheel rotations/s to m/s
-        )
+        return self.speed_motor.get_velocity().value * (
+            self.wheel_radius * 2 * math.pi
+        )  # Convert wheel rotations/s to m/s
 
     def get_angle_absoulte(self) -> Rotation2d:
         return Rotation2d(
@@ -276,10 +277,11 @@ class SwerveWheel(Sendable):
         self.stopped = False
         self.desired_state = state
 
-    def setVoltageOnly(self, voltage: float):
+    def setVoltageOnly(self, voltage: float, rot: bool = False):
         self.stopped = False
         self.doing_sysid = True
         self.sysid_volts = voltage
+        self.sysid_rot = rot
 
     """
     EXECUTE
@@ -290,11 +292,20 @@ class SwerveWheel(Sendable):
             self.speed_motor.set_control(controls.static_brake.StaticBrake())
             self.direction_motor.set_control(controls.coast_out.CoastOut())
             return
-        
-        self.cached_drive_rot = BaseStatusSignal.get_latency_compensated_value( self.drive_position, self.drive_velocity)
+
+        self.cached_drive_rot = BaseStatusSignal.get_latency_compensated_value(
+            self.drive_position, self.drive_velocity
+        )
 
         if self.doing_sysid:
-            self.direction_motor.set_control(self.direction_control.with_position(self.direction_position.value))
+            if self.sysid_rot:
+                self.direction_motor.set_control(
+                    self.direction_control.with_position(0.125)
+                )
+            else:
+                self.direction_motor.set_control(
+                    self.direction_control.with_position(self.direction_position.value)
+                )
             self.speed_motor.set_control(controls.VoltageOut(self.sysid_volts))
             return
 

@@ -1,3 +1,4 @@
+from invoke.parser.context import flag_key
 import math
 
 from choreo.trajectory import SwerveSample
@@ -46,6 +47,7 @@ class SwerveDrive(Sendable):
     has_desired_pose = will_reset_to(False)
 
     doing_sysid = will_reset_to(False)
+    sysid_rot = will_reset_to(False)
     sysid_volts = will_reset_to(0.0)
 
     def __init__(self) -> None:
@@ -116,6 +118,9 @@ class SwerveDrive(Sendable):
         )
 
         self.module_positions = [None] * 4
+
+        self.cached_yaw = 0.0
+        self.cached_yaw_rate = 0.0
 
         # 4 signals per module + yaw + yaw rate
         self.all_signals = []
@@ -261,11 +266,12 @@ class SwerveDrive(Sendable):
         # System identification mode for characterizing drive motors
         self.doing_sysid = True
         self.sysid_volts = volts
-        if rot == 0.0:
-            # Small forward motion to keep wheels aligned during linear characterization
-            self.translationX = 0.01
-            self.translationY = 0.0
-        self.rotationX = rot
+
+    def sysid_rot(self, volts: float, rot: float = 0.0) -> None:
+        # System identification mode for characterizing drive motors
+        self.doing_sysid = True
+        self.sysid_volts = volts
+        self.sysid_rotate = True
 
     def set_desired_pose(self, pose: Pose2d):
         self.desired_pose = pose
@@ -362,29 +368,12 @@ class SwerveDrive(Sendable):
     # characterized.
     def log(self, sys_id_routine: SysIdRoutineLog) -> None:
         # Log voltage, position, and velocity for each drive motor (used for system identification)
-        sys_id_routine.motor("drive-front-left").voltage(
-            self.front_left.getVoltage()
-        ).position(self.front_left.getPosition().distance).velocity(
-            self.front_left.getVelocity()
-        )
-
-        sys_id_routine.motor("drive-front-right").voltage(
-            self.front_right.getVoltage()
-        ).position(self.front_right.getPosition().distance).velocity(
-            self.front_right.getVelocity()
-        )
-
-        sys_id_routine.motor("drive-rear-left").voltage(
-            self.rear_left.getVoltage()
-        ).position(self.rear_left.getPosition().distance).velocity(
-            self.rear_left.getVelocity()
-        )
-
-        sys_id_routine.motor("drive-rear-right").voltage(
-            self.rear_right.getVoltage()
-        ).position(self.rear_right.getPosition().distance).velocity(
-            self.rear_right.getVelocity()
-        )
+        for name, module in zip(("fl", "fr", "rl", "rr"), self.modules):
+            sys_id_routine.motor(f"swerve/drive/{name}").voltage(
+                module.getVoltage()
+            ).position(module.cached_drive_rot / module.drive_rot_per_meter).velocity(
+                module.getVelocity()
+            )
 
     def doTelemetry(self):
         self.front_left.putTelem()
@@ -397,19 +386,18 @@ class SwerveDrive(Sendable):
     """
 
     def execute(self) -> None:
+        BaseStatusSignal.refresh_all(self.all_signals)
+        self.cached_yaw = BaseStatusSignal.get_latency_compensated_value(
+            self.pigeon.get_yaw(), self.pigeon.get_angular_velocity_z_world()
+        )
+        self.cached_yaw_rate = self.pigeon.get_angular_velocity_z_world().value
+
         self.sendAdvantageScopeData()
 
         for i, module in enumerate(self.modules):
-            self.module_positions[i] = module.getPosition(True)
+            self.module_positions[i] = module.getPosition()
 
-        chassis_rot = (
-            Rotation2d(
-                BaseStatusSignal.get_latency_compensated_value(
-                    self.pigeon.get_yaw(), self.pigeon.get_angular_velocity_z_world()
-                )
-            )
-            + self.pigeon_offset
-        )
+        chassis_rot = Rotation2d(self.cached_yaw) + self.pigeon_offset
 
         self.pose_estimator.update(
             chassis_rot,
