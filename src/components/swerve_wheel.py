@@ -68,6 +68,14 @@ class SwerveWheel(Sendable):
             frequency_hz=4, timeout_seconds=0.01
         )
 
+        self.direction_motor.get_closed_loop_error().set_update_frequency(20)
+        self.direction_motor.get_closed_loop_reference().set_update_frequency(20)
+        self.direction_motor.get_closed_loop_output().set_update_frequency(20)
+
+        self.speed_motor.get_closed_loop_error().set_update_frequency(20)
+        self.speed_motor.get_closed_loop_reference().set_update_frequency(20)
+        self.speed_motor.get_closed_loop_output().set_update_frequency(20)
+
         # apply configs
         self.speed_motor_configs = TalonFXConfiguration()
         self.direction_motor_configs = TalonFXConfiguration()
@@ -144,6 +152,8 @@ class SwerveWheel(Sendable):
 
         self.nt = SmartNT("Swerve Modules")
 
+        self.cached_drive_rot = 0.0
+
     def on_enable(self):
         if self.tuning_enabled:
             self.speed_controller = self.speed_profile.create_ctre_flywheel_controller()
@@ -188,13 +198,7 @@ class SwerveWheel(Sendable):
             ),  # Convert wheel rotations/s to m/s (already in mechanism units)
         ]
 
-    def getPosition(self, refresh: bool = False) -> SwerveModulePosition:
-        if refresh:
-            self.drive_position.refresh()
-            self.direction_position.refresh()
-            self.drive_velocity.refresh()
-            self.direction_velocity.refresh()
-
+    def getPosition(self) -> SwerveModulePosition:
         drive_rot = BaseStatusSignal.get_latency_compensated_value(
             self.drive_position, self.drive_velocity
         )
@@ -286,9 +290,13 @@ class SwerveWheel(Sendable):
             self.speed_motor.set_control(controls.static_brake.StaticBrake())
             self.direction_motor.set_control(controls.coast_out.CoastOut())
             return
+        
+        self.cached_drive_rot = BaseStatusSignal.get_latency_compensated_value( self.drive_position, self.drive_velocity)
 
-        # Update position tracking before using it
-        self.getPosition(refresh=True)
+        if self.doing_sysid:
+            self.direction_motor.set_control(self.direction_control.with_position(self.direction_position.value))
+            self.speed_motor.set_control(controls.VoltageOut(self.sysid_volts))
+            return
 
         state = self.desired_state
         if state is None:
