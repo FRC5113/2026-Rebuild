@@ -125,7 +125,7 @@ class SwerveDrive(Sendable):
 
         self.all_signals.append(self.pigeon.get_yaw())
 
-        # BaseStatusSignal.set_update_frequency_for_all(250, self.all_signals)
+        BaseStatusSignal.set_update_frequency_for_all(250, self.all_signals)
 
     def initSendable(self, builder: SendableBuilder) -> None:
         # Configure data sent to SmartDashboard's swerve widget
