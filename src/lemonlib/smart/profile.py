@@ -1,5 +1,5 @@
 from phoenix6 import signals
-from phoenix6.configs import Slot0Configs
+from phoenix6.configs import Slot0Configs,MotionMagicConfigs
 from wpilib import Preferences, SmartDashboard
 from wpimath.controller import (
     ArmFeedforward,
@@ -147,6 +147,21 @@ class SmartProfile(Sendable):
             signals.StaticFeedforwardSignValue.USE_CLOSED_LOOP_SIGN
         )
         return controller
+    
+    def create_ctre_profiled_turret_controller(self) -> Slot0Configs:
+        """Creates a CTRE PIDController. Use `create_pid_controller()`
+        instead if possible.
+        Requires kP, kI, kD,kS
+        """
+        controller = Slot0Configs()
+        controller.with_k_p(self.gains["kP"])
+        controller.with_k_i(self.gains["kI"])
+        controller.with_k_d(self.gains["kD"])
+        controller.with_k_s(self.gains["kS"])
+        controller.with_static_feedforward_sign(
+            signals.StaticFeedforwardSignValue.USE_CLOSED_LOOP_SIGN
+        )
+        return controller 
 
     def create_ctre_flywheel_controller(self) -> Slot0Configs:
         """Creates a CTRE PIDController. Use `create_pid_controller()`

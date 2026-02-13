@@ -157,19 +157,13 @@ class SwerveWheel(Sendable):
         self.nt = SmartNT("Swerve Modules")
 
         self.cached_drive_rot = 0.0
-        self.feedforward = SimpleMotorFeedforwardMeters(0,0,0)
 
     def on_enable(self):
         if self.tuning_enabled:
-            self.speed_controller = self.speed_profile.create_flywheel_controller(f"{self.speed_motor.device_id}_speed")
-            direction_ff = (
-                self.direction_profile.create_ctre_turret_controller()
-            )
-            self.direction_controller = Slot0Configs().with_k_p(direction_ff.k_p).with_k_d(direction_ff.k_d).with_k_a(0.0).with_k_s(0.0).with_k_v(0.0)
+            self.speed_controller = self.speed_profile.create_ctre_flywheel_controller()
+            self.direction_controller = self.direction_controller.create_ctre_turret_controller()
             self.direction_motor_configs.slot0 = self.direction_controller
-            # self.speed_motor_configs.slot0 = self.speed_controller
-
-            self.feedforward = SimpleMotorFeedforwardMeters(direction_ff.k_s,direction_ff.k_v,direction_ff.k_a)
+            self.speed_motor_configs.slot0 = self.speed_controller
 
             tryUntilOk(
                 5,
@@ -182,11 +176,9 @@ class SwerveWheel(Sendable):
                 5, lambda: self.speed_motor.configurator.apply(self.speed_motor_configs)
             )
 
-        self.direction_control = controls.PositionVoltage(0)
+        self.direction_control = controls.PositionVoltage(0).with_enable_foc(True)
 
-        self.speed_control = controls.VelocityTorqueCurrentFOC(
-            0
-        )  # FOC = Field Oriented Control for better motion
+        self.speed_control = controls.VelocityVoltage(0).with_enable_foc(True)  # FOC = Field Oriented Control for better motion
 
     """
     INFORMATIONAL METHODS
@@ -339,10 +331,9 @@ class SwerveWheel(Sendable):
         # This prevents the robot from drifting while the wheel is still rotating
         target_speed = target_speed_rot * target_displacement.cos()
 
-        speed_ff = self.speed_controller.calculate(self.drive_velocity.value,state.speed * (self.drive_gear_ratio / self.meters_per_wheel_rotation))
-        self.speed_motor.set_control(controls.VoltageOut(speed_ff))
+    
+        self.speed_motor.set_control(self.speed_control.with_velocity(target_speed))
 
-        ff_volts = self.feedforward.calculate(state.angle.radians())
         self.direction_motor.set_control(
-            self.direction_control.with_position(target_angle / math.tau).with_feed_forward(ff_volts)
+            self.direction_control.with_position(target_angle / math.tau)
         )
