@@ -3,12 +3,15 @@ from phoenix6 import controls
 from phoenix6.configs import (
     FeedbackConfigs,
     TalonFXConfiguration,
+    TalonFXSConfiguration
 )
-from phoenix6.hardware import TalonFX
+from phoenix6.hardware import TalonFX,TalonFXS
 from phoenix6.signals import (
     FeedbackSensorSourceValue,
     MotorAlignmentValue,
     NeutralModeValue,
+    MotorOutputStatusValue,
+    MotorArrangementValue
 )
 from wpimath import units
 
@@ -20,6 +23,9 @@ class Shooter:
 
     right_motor: TalonFX
     left_motor: TalonFX
+    left_kicker_motor: TalonFXS
+    right_kicker_motor: TalonFXS
+    
     shooter_profile: SmartProfile
     shooter_gear_ratio: float
     shooter_amps: units.amperes
@@ -27,6 +33,7 @@ class Shooter:
 
     shooter_velocity = will_reset_to(0.0)
     shooter_voltage = will_reset_to(0.0)
+    kicker_voltage = will_reset_to(0.0)
     manual_control = will_reset_to(False)
 
     def setup(self):
@@ -51,6 +58,17 @@ class Shooter:
             self.left_motor.device_id, MotorAlignmentValue.OPPOSED
         )
 
+        self.kicker_motor_configs = TalonFXSConfiguration()
+        self.kicker_motor_configs.motor_output.neutral_mode = NeutralModeValue.BRAKE
+        self.kicker_motor_configs.commutation.motor_arrangement = MotorArrangementValue.NEO550_JST
+
+        self.left_kicker_motor.configurator.apply(self.kicker_motor_configs)
+        self.right_kicker_motor.configurator.apply(self.kicker_motor_configs)
+        self.kicker_control = controls.VoltageOut(0)
+        self.kicker_follower = controls.Follower(
+            self.left_kicker_motor.device_id, MotorAlignmentValue.OPPOSED
+        )
+
     def on_enable(self):
         if self.tuning_enabled:
             self.shooter_controller = (
@@ -71,9 +89,12 @@ class Shooter:
         self.manual_control = False
         self.shooter_velocity = speed
 
-    def set_voltage(self, volts: float):
+    def set_voltage(self, volts: units.volts):
         self.manual_control = True
         self.shooter_voltage = volts
+
+    def set_kicker_voltage(self, volts: units.volts):
+        self.kicker_voltage = volts
 
     """
     INFORMATIONAL METHODS
@@ -88,10 +109,15 @@ class Shooter:
         return self.shooter_velocity
 
     def execute(self):
-        if self.manual_control:
-            self.left_motor.set_control(controls.VoltageOut(self.shooter_voltage))
-        else:
-            self.left_motor.set_control(
-                self.shooter_control.with_velocity(self.shooter_velocity)
-            )
+        self.left_kicker_motor.set_control(self.kicker_control.with_output(self.kicker_voltage))
+        self.right_kicker_motor.set_control(self.kicker_follower)
+
+        # if self.manual_control:
+        self.left_motor.set_control(controls.VoltageOut(self.shooter_voltage))
+        # else:
+        #     self.left_motor.set_control(
+        #         self.shooter_control.with_velocity(self.shooter_velocity)
+        #     )
         self.right_motor.set_control(self.shooter_follower)
+
+

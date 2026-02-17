@@ -149,7 +149,10 @@ class MyRobot(LemonRobot):
         """
         INTAKE
         """
-        self.intake_motor = TalonFX(51)
+
+        self.intake_spin_motor = TalonFX(51)
+        self.intake_left_motor = TalonFX(52)
+        self.intake_right_motor = TalonFX(53)
 
         """
         SHOOTER
@@ -176,8 +179,8 @@ class MyRobot(LemonRobot):
         """
         INDEXER
         """
-        self.indexer_kicker_motor = TalonFXS(4, self.rio_canbus)
-        self.indexer_conveyor_motor = TalonFXS(5, self.rio_canbus)
+        self.indexer_left_kicker_motor = TalonFXS(4, self.rio_canbus)
+        self.indexer_right_kicker_motor = TalonFXS(5, self.rio_canbus)
         self.indexer_kicker_amps: units.amperes = 20.0
         self.indexer_conveyor_amps: units.amperes = 10.0
         """
@@ -274,56 +277,62 @@ class MyRobot(LemonRobot):
         """
         SWERVE
         """
-        with self.consumeExceptions():
-            rotate_mult = 0.75
-            mult = 1
-            # if both 25% else 50 or 75
-            if not (
-                (self.primary.getR2Axis() >= 0.8) and (self.primary.getL2Axis() >= 0.8)
-            ):
-                if self.primary.getR2Axis() >= 0.8:
-                    mult *= 0.75
-                if self.primary.getL2Axis() >= 0.8:
-                    mult *= 0.5
-            else:
-                mult *= 0.25
+        # with self.consumeExceptions():
+        #     rotate_mult = 0.75
+        #     mult = 1
+        #     # if both 25% else 50 or 75
+        #     if not (
+        #         (self.primary.getR2Axis() >= 0.8) and (self.primary.getL2Axis() >= 0.8)
+        #     ):
+        #         if self.primary.getR2Axis() >= 0.8:
+        #             mult *= 0.75
+        #         if self.primary.getL2Axis() >= 0.8:
+        #             mult *= 0.5
+        #     else:
+        #         mult *= 0.25
 
-            self.drive_control.drive_manual(
-                self.x_filter.calculate(
-                    self.sammi_curve(self.primary.getLeftY()) * mult * self.top_speed
-                ),
-                -self.y_filter.calculate(
-                    self.sammi_curve(self.primary.getLeftX()) * mult * self.top_speed
-                ),
-                self.theta_filter.calculate(
-                    -self.sammi_curve(self.primary.getRightX())
-                    * rotate_mult
-                    * self.top_omega
-                ),
-                not self.primary.getCreateButton(),  # temporary
-            )
-            if self.primary.getSquareButton():
-                self.swerve_drive.reset_gyro()
-            self.swerve_drive.doTelemetry()
+        #     self.drive_control.drive_manual(
+        #         self.x_filter.calculate(
+        #             self.sammi_curve(self.primary.getLeftY()) * mult * self.top_speed
+        #         ),
+        #         -self.y_filter.calculate(
+        #             self.sammi_curve(self.primary.getLeftX()) * mult * self.top_speed
+        #         ),
+        #         self.theta_filter.calculate(
+        #             -self.sammi_curve(self.primary.getRightX())
+        #             * rotate_mult
+        #             * self.top_omega
+        #         ),
+        #         not self.primary.getCreateButton(),  # temporary
+        #     )
+        if self.primary.getSquareButton():
+            self.swerve_drive.reset_gyro()
+        self.swerve_drive.doTelemetry()
 
         """
         INTAKE
         """
         with self.consumeExceptions():
-            if self.secondary.getAButton():
+            if self.secondary.getLeftBumper():
                 self.intake.set_voltage(12)
-            if self.secondary.getBButton():
+            if self.secondary.getRightBumper():
                 self.intake.set_voltage(-12)
 
         """
         SHOOTER
         """
         with self.consumeExceptions():
+            if self.secondary.getAButton():
+                self.shooter.set_voltage(5)
+            if self.secondary.getBButton():
+                self.shooter.set_voltage(6)
             if self.secondary.getXButton():
-                self.shooter_controller.request_shoot()
+                self.shooter.set_voltage(7)
+            if self.secondary.getYButton():
+                self.shooter.set_voltage(8)
 
             if self.secondary.getLeftTriggerAxis() >= 0.8:
-                self.shooter.set_voltage(self.secondary.getLeftTriggerAxis() * 8.0)
+                self.shooter.set_kicker_voltage(8)
 
     def _display_auto_trajectory(self) -> None:
         selected_auto = self._automodes.chooser.getSelected()
