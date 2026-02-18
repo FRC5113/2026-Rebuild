@@ -25,7 +25,7 @@ class Shooter:
     left_motor: TalonFX
     left_kicker_motor: TalonFXS
     right_kicker_motor: TalonFXS
-    
+
     shooter_profile: SmartProfile
     shooter_gear_ratio: float
     shooter_amps: units.amperes
@@ -55,7 +55,7 @@ class Shooter:
             controls.VelocityVoltage(0).with_enable_foc(True).with_slot(0)
         )
         self.shooter_follower = controls.Follower(
-            self.left_motor.device_id, MotorAlignmentValue.OPPOSED
+            self.right_motor.device_id, MotorAlignmentValue.OPPOSED
         )
 
         self.kicker_motor_configs = TalonFXSConfiguration()
@@ -64,9 +64,9 @@ class Shooter:
 
         self.left_kicker_motor.configurator.apply(self.kicker_motor_configs)
         self.right_kicker_motor.configurator.apply(self.kicker_motor_configs)
-        self.kicker_control = controls.VoltageOut(0)
+        self.kicker_control = controls.VoltageOut(0).with_enable_foc(True)
         self.kicker_follower = controls.Follower(
-            self.left_kicker_motor.device_id, MotorAlignmentValue.OPPOSED
+            self.right_kicker_motor.device_id, MotorAlignmentValue.OPPOSED
         )
 
     def on_enable(self):
@@ -109,15 +109,11 @@ class Shooter:
         return self.shooter_velocity
 
     def execute(self):
-        self.left_kicker_motor.set_control(self.kicker_control.with_output(self.kicker_voltage))
-        self.right_kicker_motor.set_control(self.kicker_follower)
+        self.right_kicker_motor.set_control(self.kicker_control.with_output(self.kicker_voltage))
+        self.left_kicker_motor.set_control(self.kicker_follower)
 
-        # if self.manual_control:
-        self.left_motor.set_control(controls.VoltageOut(self.shooter_voltage))
-        # else:
-        #     self.left_motor.set_control(
-        #         self.shooter_control.with_velocity(self.shooter_velocity)
-        #     )
-        self.right_motor.set_control(self.shooter_follower)
+
+        self.right_motor.set_control(controls.VoltageOut(self.shooter_voltage).with_enable_foc(True))
+        self.left_motor.set_control(self.shooter_follower)
 
 

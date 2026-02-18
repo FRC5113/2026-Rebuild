@@ -21,6 +21,7 @@ from wpimath.geometry import Rotation2d
 from wpimath.controller import SimpleMotorFeedforwardMeters
 from wpimath.kinematics import SwerveModulePosition, SwerveModuleState
 from wpiutil import Sendable
+import wpilib
 
 from lemonlib.ctre import tryUntilOk
 from lemonlib.smart import SmartNT, SmartPreference, SmartProfile
@@ -119,10 +120,12 @@ class SwerveWheel(Sendable):
         self.direction_motor_configs.closed_loop_general = (
             ClosedLoopGeneralConfigs().with_continuous_wrap(True)
         )
+
+        timeout = 0.0 if wpilib.RobotBase.isSimulation() else 0.1
         tryUntilOk(
             5,
             lambda: self.direction_motor.configurator.apply(
-                self.direction_motor_configs
+                self.direction_motor_configs, timeout
             ),
         )
 
@@ -132,7 +135,7 @@ class SwerveWheel(Sendable):
         # )
 
         tryUntilOk(
-            5, lambda: self.speed_motor.configurator.apply(self.speed_motor_configs)
+            5, lambda: self.speed_motor.configurator.apply(self.speed_motor_configs, timeout)
         )
 
         self.drive_position = self.speed_motor.get_position()

@@ -63,7 +63,7 @@ class MyRobot(LemonRobot):
         components, such as the NavX, need only be created once.
         """
         self.tuning_enabled = True
-
+        
         self.canivore_canbus = CANBus("can0")
         self.rio_canbus = CANBus.roborio()
 
@@ -179,10 +179,10 @@ class MyRobot(LemonRobot):
         """
         INDEXER
         """
-        self.indexer_left_kicker_motor = TalonFXS(4, self.rio_canbus)
-        self.indexer_right_kicker_motor = TalonFXS(5, self.rio_canbus)
-        self.indexer_kicker_amps: units.amperes = 20.0
-        self.indexer_conveyor_amps: units.amperes = 10.0
+        self.shooter_left_kicker_motor = TalonFXS(4, self.rio_canbus)
+        self.shooter_right_kicker_motor = TalonFXS(5, self.rio_canbus)
+        self.shooter_kicker_amps: units.amperes = 20.0
+        self.shooter_conveyor_amps: units.amperes = 10.0
         """
         ODOMETRY
         """
@@ -242,8 +242,6 @@ class MyRobot(LemonRobot):
                 "Low Bandwidth Mode is active! Tuning is disabled.", AlertType.INFO
             )
 
-        self.pdh = PowerDistribution()
-
         self.estimated_field = Field2d()
 
         if DriverStation.getAlliance() == DriverStation.Alliance.kRed:
@@ -277,34 +275,34 @@ class MyRobot(LemonRobot):
         """
         SWERVE
         """
-        # with self.consumeExceptions():
-        #     rotate_mult = 0.75
-        #     mult = 1
-        #     # if both 25% else 50 or 75
-        #     if not (
-        #         (self.primary.getR2Axis() >= 0.8) and (self.primary.getL2Axis() >= 0.8)
-        #     ):
-        #         if self.primary.getR2Axis() >= 0.8:
-        #             mult *= 0.75
-        #         if self.primary.getL2Axis() >= 0.8:
-        #             mult *= 0.5
-        #     else:
-        #         mult *= 0.25
+        with self.consumeExceptions():
+            rotate_mult = 0.75
+            mult = 1
+            # if both 25% else 50 or 75
+            if not (
+                (self.primary.getR2Axis() >= 0.8) and (self.primary.getL2Axis() >= 0.8)
+            ):
+                if self.primary.getR2Axis() >= 0.8:
+                    mult *= 0.75
+                if self.primary.getL2Axis() >= 0.8:
+                    mult *= 0.5
+            else:
+                mult *= 0.25
 
-        #     self.drive_control.drive_manual(
-        #         self.x_filter.calculate(
-        #             self.sammi_curve(self.primary.getLeftY()) * mult * self.top_speed
-        #         ),
-        #         -self.y_filter.calculate(
-        #             self.sammi_curve(self.primary.getLeftX()) * mult * self.top_speed
-        #         ),
-        #         self.theta_filter.calculate(
-        #             -self.sammi_curve(self.primary.getRightX())
-        #             * rotate_mult
-        #             * self.top_omega
-        #         ),
-        #         not self.primary.getCreateButton(),  # temporary
-        #     )
+            self.drive_control.drive_manual(
+                self.x_filter.calculate(
+                    self.sammi_curve(self.primary.getLeftY()) * mult * self.top_speed
+                ),
+                -self.y_filter.calculate(
+                    self.sammi_curve(self.primary.getLeftX()) * mult * self.top_speed
+                ),
+                self.theta_filter.calculate(
+                    -self.sammi_curve(self.primary.getRightX())
+                    * rotate_mult
+                    * self.top_omega
+                ),
+                not self.primary.getCreateButton(),  # temporary
+            )
         if self.primary.getSquareButton():
             self.swerve_drive.reset_gyro()
         self.swerve_drive.doTelemetry()
@@ -314,14 +312,16 @@ class MyRobot(LemonRobot):
         """
         with self.consumeExceptions():
             if self.secondary.getLeftBumper():
-                self.intake.set_voltage(12)
-            if self.secondary.getRightBumper():
-                self.intake.set_voltage(-12)
+                self.intake.set_voltage(8)
 
         """
         SHOOTER
         """
         with self.consumeExceptions():
+            if self.secondary.getStartButton():
+                self.shooter.set_voltage(4.75)
+            if self.secondary.getOptionsButton():
+                self.shooter.set_voltage(4.75)
             if self.secondary.getAButton():
                 self.shooter.set_voltage(5)
             if self.secondary.getBButton():
@@ -331,7 +331,7 @@ class MyRobot(LemonRobot):
             if self.secondary.getYButton():
                 self.shooter.set_voltage(8)
 
-            if self.secondary.getLeftTriggerAxis() >= 0.8:
+            if self.secondary.getRightTriggerAxis() >= 0.8:
                 self.shooter.set_kicker_voltage(8)
 
     def _display_auto_trajectory(self) -> None:
