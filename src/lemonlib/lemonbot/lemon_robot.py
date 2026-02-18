@@ -1,7 +1,7 @@
 from typing import Callable, List, Tuple
 
 import magicbot
-from wpilib import DriverStation, Notifier
+from wpilib import DriverStation, Notifier,Timer
 
 
 class LemonRobot(magicbot.MagicRobot):
@@ -15,15 +15,21 @@ class LemonRobot(magicbot.MagicRobot):
 
     def __init__(self):
         super().__init__()
-        self._periodic_callbacks: List[Tuple[Callable[[], None], float]] = []
-        self._notifiers: list[Notifier] = []
+        self._periodic_callbacks: List[List] = []
 
         self.loop_time = self.control_loop_wait_time
-        print("LemonRobot initialized")
 
     def add_periodic(self, callback: Callable[[], None], period: float):
-        print(f"Registering periodic: {callback.__name__}, every {period}s")
-        self._periodic_callbacks.append((callback, period))
+        now = Timer.getFPGATimestamp()
+        self._periodic_callbacks.append([callback, period, now])
+
+    def _run_periodics(self):
+        now = Timer.getFPGATimestamp()
+        for entry in self.__periodics:
+            callback, period, last = entry
+            if now - last >= period:
+                entry[2] = now
+                callback()
 
     def autonomousPeriodic(self):
         """
@@ -38,11 +44,6 @@ class LemonRobot(magicbot.MagicRobot):
         """
         pass
 
-    # def endCompetition(self) -> None:
-    #     self.__done = True
-    #     if self._automodes:
-    #         self._automodes.endCompetition()
-
     def autonomous(self):
         super().autonomous()
         self.autonomousPeriodic()
@@ -54,30 +55,12 @@ class LemonRobot(magicbot.MagicRobot):
         Users should override this method for code which will be called"""
         pass
 
-    def _stop_notifiers(self):
-        for notifier in self._notifiers:
-            notifier.stop()
-        self._notifiers.clear()
-
-    def _on_mode_disable_components(self):
-        super()._on_mode_disable_components()
-        self._stop_notifiers()
-
     def _on_mode_enable_components(self):
         super()._on_mode_enable_components()
         self.on_enable()
-        self._restart_periodics()
 
     def on_enable(self):
         pass
-
-    def _restart_periodics(self):
-        self._stop_notifiers()
-        for callback, period in self._periodic_callbacks:
-            notifier = Notifier(callback)
-            notifier.setName(f"Periodic-{callback.__name__}")
-            notifier.startPeriodic(period)
-            self._notifiers.append(notifier)
 
     def _enabled_periodic(self) -> None:
         """Run components and all periodic methods."""
@@ -92,8 +75,10 @@ class LemonRobot(magicbot.MagicRobot):
             watchdog.addEpoch(name)
 
         self.enabledperiodic()
+        watchdog.addEpoch("enabledperiodic")
 
         self._do_periodics()
+        watchdog.addEpoch("periodics")
 
         for reset_dict, component in self._reset_components:
             component.__dict__.update(reset_dict)
