@@ -133,35 +133,27 @@ class SmartProfile(Sendable):
         controller.with_k_d(self.gains["kD"])
         return controller
 
-    def create_ctre_turret_controller(self) -> Slot0Configs:
+    def create_ctre_turret_controller(self):
         """Creates a CTRE PIDController. Use `create_pid_controller()`
         instead if possible.
-        Requires kP, kI, kD,kS
+        Requires kP,kI,kD,kS,kV,kMaxV,kMaxA
         """
         controller = Slot0Configs()
-        controller.with_k_p(self.gains["kP"])
-        controller.with_k_i(self.gains["kI"])
-        controller.with_k_d(self.gains["kD"])
-        controller.with_k_s(self.gains["kS"])
-        controller.with_static_feedforward_sign(
+        controller.k_p = self.gains["kP"]
+        controller.k_i = self.gains["kI"]
+        controller.k_d = self.gains["kD"]
+        controller.k_s = self.gains["kS"]
+        controller.k_v = self.gains["kV"]
+        controller.k_a = self.gains["kA"] if "kA" in self.gains else 0,
+        controller.static_feedforward_sign = (
             signals.StaticFeedforwardSignValue.USE_CLOSED_LOOP_SIGN
         )
-        return controller
-    
-    def create_ctre_profiled_turret_controller(self) -> Slot0Configs:
-        """Creates a CTRE PIDController. Use `create_pid_controller()`
-        instead if possible.
-        Requires kP, kI, kD,kS
-        """
-        controller = Slot0Configs()
-        controller.with_k_p(self.gains["kP"])
-        controller.with_k_i(self.gains["kI"])
-        controller.with_k_d(self.gains["kD"])
-        controller.with_k_s(self.gains["kS"])
-        controller.with_static_feedforward_sign(
-            signals.StaticFeedforwardSignValue.USE_CLOSED_LOOP_SIGN
-        )
-        return controller 
+        motion_magic_configs = MotionMagicConfigs()
+        motion_magic_configs.motion_magic_cruise_velocity = 0 # Unlimited cruise velocity
+        motion_magic_configs.motion_magic_expo_k_v = self.gains["kMaxV"]
+        motion_magic_configs.motion_magic_expo_k_a = self.gains["kMaxA"]
+        
+        return (controller, motion_magic_configs)
 
     def create_ctre_flywheel_controller(self) -> Slot0Configs:
         """Creates a CTRE PIDController. Use `create_pid_controller()`
@@ -169,13 +161,13 @@ class SmartProfile(Sendable):
         Requires kP, kI, kD,kS, kV,kA
         """
         controller = Slot0Configs()
-        controller.with_k_p(self.gains["kP"])
-        controller.with_k_i(self.gains["kI"])
-        controller.with_k_d(self.gains["kD"])
-        controller.with_k_s(self.gains["kS"])
-        controller.with_k_v(self.gains["kV"])
-        controller.with_k_a(self.gains["kA"])
-        controller.with_static_feedforward_sign(
+        controller.k_p = self.gains["kP"]
+        controller.k_i = self.gains["kI"]
+        controller.k_d = self.gains["kD"]
+        controller.k_s = self.gains["kS"]
+        controller.k_v = self.gains["kV"]
+        controller.k_a = self.gains["kA"]
+        controller.static_feedforward_sign = (
             signals.StaticFeedforwardSignValue.USE_VELOCITY_SIGN
         )
         return controller

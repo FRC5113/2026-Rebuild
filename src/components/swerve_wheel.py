@@ -8,7 +8,7 @@ from phoenix6.configs import (
     ClosedLoopGeneralConfigs,
     FeedbackConfigs,
     TalonFXConfiguration,
-    Slot0Configs
+    Slot0Configs,
 )
 from phoenix6.hardware import CANcoder, TalonFX
 from phoenix6.signals import (
@@ -161,8 +161,9 @@ class SwerveWheel(Sendable):
     def on_enable(self):
         if self.tuning_enabled:
             self.speed_controller = self.speed_profile.create_ctre_flywheel_controller()
-            self.direction_controller = self.direction_controller.create_ctre_turret_controller()
-            self.direction_motor_configs.slot0 = self.direction_controller
+            self.direction_controller = self.direction_profile.create_ctre_turret_controller()
+            self.direction_motor_configs.slot0 = self.direction_controller[0]
+            self.direction_motor_configs.motion_magic = self.direction_controller[1]
             self.speed_motor_configs.slot0 = self.speed_controller
 
             tryUntilOk(
@@ -176,9 +177,11 @@ class SwerveWheel(Sendable):
                 5, lambda: self.speed_motor.configurator.apply(self.speed_motor_configs)
             )
 
-        self.direction_control = controls.PositionVoltage(0).with_enable_foc(True)
+        self.direction_control = controls.MotionMagicExpoVoltage(0).with_enable_foc(True)
 
-        self.speed_control = controls.VelocityVoltage(0).with_enable_foc(True)  # FOC = Field Oriented Control for better motion
+        self.speed_control = controls.VelocityVoltage(0).with_enable_foc(
+            True
+        )  # FOC = Field Oriented Control for better motion
 
     """
     INFORMATIONAL METHODS
@@ -331,7 +334,6 @@ class SwerveWheel(Sendable):
         # This prevents the robot from drifting while the wheel is still rotating
         target_speed = target_speed_rot * target_displacement.cos()
 
-    
         self.speed_motor.set_control(self.speed_control.with_velocity(target_speed))
 
         self.direction_motor.set_control(

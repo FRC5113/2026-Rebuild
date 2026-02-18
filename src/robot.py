@@ -114,12 +114,14 @@ class MyRobot(LemonRobot):
         self.direction_profile = SmartProfile(
             "direction",
             {
-                "kP": 69.235,
+                "kP": 41.0,
                 "kI": 0.0,
-                "kD": 6.6971,
-                "kS": 0.14,
-                "kV": 0.375,
-                "kA": 0.0,
+                "kD": 1.0,
+                "kS": 0.23,
+                "kV": 2.6,
+                "kA": 0.11,
+                "kMaxA": 0.11,
+                "kMaxV": 2.6
             },
             (not self.low_bandwidth) and self.tuning_enabled,
         )
