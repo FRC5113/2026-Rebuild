@@ -16,8 +16,8 @@ class ShooterController(StateMachine):
 
     projectile_speed: float = 20.0 # m/s, needs tuning
 
-    shooter_height = 0.5  # TUNE, RANDOM NUM
-    hub_height = 2  # TUNE, RANDOM NUM
+    shooter_height = 0.4318  # tune
+    hub_height = 1.8288  # tune
     gravity = 9.81
 
     at_speed: bool = will_reset_to(False)
@@ -76,7 +76,7 @@ class ShooterController(StateMachine):
         original_distance = robot_pos.distance(hub_pos)
         self.target_rps = self._linear_interp(original_distance, self.distance_lookup, self.speed_lookup)
 
-    def _calculate_flight_time(self, horizontal_distance, height_diff):
+    def _calculate_flight_time(self, horizontal_distance: float, height_diff: float):
         """
         Calculate time of flight for a projectile, given horizontal distance and height difference.
 
@@ -125,8 +125,8 @@ class ShooterController(StateMachine):
         
         return time if time > 0 else d / v0
     
-    def _linear_interp(self, x, xp, fp):
-        """Fast linear interpolation without numpy."""
+    def _linear_interp(self, x: float, xp: list[float], fp: list[float]):
+        """Fast linear interpolation without ."""
         if x <= xp[0]:
             return fp[0]
         if x >= xp[-1]:
