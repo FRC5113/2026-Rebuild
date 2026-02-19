@@ -8,8 +8,6 @@ class MyRobot(TimedCommandRobot):
         self.robot = SysIdRoutineBot()
 
         self.robot.configureBindings()
-        
 
     def teleopInit(self) -> None:
         CommandScheduler.getInstance().cancelAll()
-

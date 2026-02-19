@@ -1,29 +1,27 @@
 import math
 import typing
-
-from phoenix6.configs import (
-    FeedbackConfigs,
-    MotorOutputConfigs,
-    Slot0Configs,
-    TalonFXConfiguration,
-    ClosedLoopGeneralConfigs,
-)
-from phoenix6.configs.config_groups import NeutralModeValue
-from phoenix6.controls import PositionVoltage, VoltageOut
-from phoenix6.hardware import CANcoder, TalonFX
-from phoenix6 import CANBus, BaseStatusSignal
-from wpilib import sysid
-from wpimath.units import volts
 from typing import Callable
 
-from phoenix6.status_code import StatusCode
+from phoenix6 import BaseStatusSignal, CANBus
+from phoenix6.configs import (
+    ClosedLoopGeneralConfigs,
+    FeedbackConfigs,
+    TalonFXConfiguration,
+)
+from phoenix6.configs.config_groups import NeutralModeValue
+from phoenix6.controls import VoltageOut
+from phoenix6.hardware import CANcoder, TalonFX
 from phoenix6.signals import (
     FeedbackSensorSourceValue,
     NeutralModeValue,
-    SensorDirectionValue,
 )
-from . import tryUntilOk
+from phoenix6.status_code import StatusCode
+from wpilib import sysid
+from wpimath.units import volts
+
 from subsystems.sysid_subsystem import SysidSubsystem
+
+from . import tryUntilOk
 
 
 class SwerveModule(SysidSubsystem):
@@ -91,7 +89,7 @@ class SwerveModule(SysidSubsystem):
     def log(self, sys_id_routine: sysid.SysIdRoutineLog) -> None:
         # Record a frame for the left motors.  Since these share an encoder, we consider
         # the entire group to be one motor.
-        sys_id_routine.motor(f"steer").voltage(
+        sys_id_routine.motor("steer").voltage(
             self.steer.get_motor_voltage().value
         ).position(self.steer.get_position().value).velocity(
             self.steer.get_velocity().value
@@ -100,5 +98,5 @@ class SwerveModule(SysidSubsystem):
     @typing.override
     def drive(self, voltage: volts) -> None:
         BaseStatusSignal.refresh_all(self.signals)
-        steer_request = VoltageOut(voltage)
+        steer_request = VoltageOut(voltage).with_enable_foc(True)
         self.steer.set_control(steer_request)

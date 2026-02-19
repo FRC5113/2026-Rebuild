@@ -99,7 +99,7 @@ class ShooterController(StateMachine):
 
         self.drive_control.point_to(self.target_angle)
         self.shooter.set_velocity(self.target_rps)
-        # TODO: Activate indexer here
+        self.shooter.set_kicker_voltage(8.0)  # TODO Tune this value
 
         if not self.shooting:
             self.next_state("idle")

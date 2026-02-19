@@ -3,15 +3,14 @@ from phoenix6 import controls
 from phoenix6.configs import (
     FeedbackConfigs,
     TalonFXConfiguration,
-    TalonFXSConfiguration
+    TalonFXSConfiguration,
 )
-from phoenix6.hardware import TalonFX,TalonFXS
+from phoenix6.hardware import TalonFX, TalonFXS
 from phoenix6.signals import (
     FeedbackSensorSourceValue,
     MotorAlignmentValue,
+    MotorArrangementValue,
     NeutralModeValue,
-    MotorOutputStatusValue,
-    MotorArrangementValue
 )
 from wpimath import units
 
@@ -60,7 +59,9 @@ class Shooter:
 
         self.kicker_motor_configs = TalonFXSConfiguration()
         self.kicker_motor_configs.motor_output.neutral_mode = NeutralModeValue.BRAKE
-        self.kicker_motor_configs.commutation.motor_arrangement = MotorArrangementValue.NEO550_JST
+        self.kicker_motor_configs.commutation.motor_arrangement = (
+            MotorArrangementValue.NEO550_JST
+        )
 
         self.left_kicker_motor.configurator.apply(self.kicker_motor_configs)
         self.right_kicker_motor.configurator.apply(self.kicker_motor_configs)
@@ -109,11 +110,17 @@ class Shooter:
         return self.shooter_velocity
 
     def execute(self):
-        self.right_kicker_motor.set_control(self.kicker_control.with_output(self.kicker_voltage))
+        self.right_kicker_motor.set_control(
+            self.kicker_control.with_output(self.kicker_voltage)
+        )
         self.left_kicker_motor.set_control(self.kicker_follower)
 
-
-        self.right_motor.set_control(controls.VoltageOut(self.shooter_voltage).with_enable_foc(True))
+        if self.manual_control:
+            self.right_motor.set_control(
+                controls.VoltageOut(self.shooter_voltage).with_enable_foc(True)
+            )
+        else:
+            self.right_motor.set_control(
+                self.shooter_control.with_velocity(self.shooter_velocity)
+            )
         self.left_motor.set_control(self.shooter_follower)
-
-

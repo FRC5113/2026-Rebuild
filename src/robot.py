@@ -6,11 +6,7 @@ from magicbot import feedback
 from phoenix6 import CANBus
 from phoenix6.hardware import CANcoder, Pigeon2, TalonFX, TalonFXS
 from robotpy_apriltag import AprilTagFieldLayout
-from wpilib import (
-    DriverStation,
-    Field2d,
-    PowerDistribution,
-)
+from wpilib import DigitalInput, DriverStation, DutyCycleEncoder, Field2d
 from wpimath import units
 from wpimath.filter import SlewRateLimiter
 from wpimath.geometry import Rotation3d, Transform3d
@@ -63,7 +59,7 @@ class MyRobot(LemonRobot):
         components, such as the NavX, need only be created once.
         """
         self.tuning_enabled = True
-        
+
         self.canivore_canbus = CANBus("can0")
         self.rio_canbus = CANBus.roborio()
 
@@ -153,6 +149,26 @@ class MyRobot(LemonRobot):
         self.intake_spin_motor = TalonFX(51)
         self.intake_left_motor = TalonFX(52)
         self.intake_right_motor = TalonFX(53)
+        self.intake_left_encoder = DutyCycleEncoder(DigitalInput(0))
+        self.intake_right_encoder = DutyCycleEncoder(DigitalInput(1))
+
+        self.intake_spin_amps: units.amperes = 40.0
+        self.intake_arm_amps: units.amperes = 20.0
+
+        self.intake_profile = SmartProfile(
+            "intake",
+            {
+                "kP": 0.0,
+                "kI": 0.0,
+                "kD": 0.0,
+                "kS": 0.0,
+                "kV": 0.0,
+                "kG": 0.0,
+                "kMaxV": 0.0,
+                "kMaxA": 0.0,
+            },
+            (not self.low_bandwidth) and self.tuning_enabled,
+        )
 
         """
         SHOOTER
@@ -161,7 +177,7 @@ class MyRobot(LemonRobot):
         self.shooter_right_motor = TalonFX(3, self.rio_canbus)
 
         self.shooter_gear_ratio = 1.0
-        self.shooter_amps: units.amperes = 40.0
+        self.shooter_amps: units.amperes = 60.0
 
         self.shooter_profile = SmartProfile(
             "shooter",
@@ -173,7 +189,7 @@ class MyRobot(LemonRobot):
                 "kV": 0.0,
                 "kA": 0.0,
             },
-            not self.low_bandwidth,
+            (not self.low_bandwidth) and self.tuning_enabled,
         )
 
         """
