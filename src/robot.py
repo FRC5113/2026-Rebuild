@@ -321,9 +321,9 @@ class MyRobot(LemonRobot):
         """
         with self.consumeExceptions():
             if self.secondary.getAButton():
-                self.intake.intake_forward()
+                self.intake.set_voltage(12)
             if self.secondary.getBButton():
-                self.intake.intake_backward()
+                self.intake.set_voltage(-12)
 
         """
         SHOOTER
