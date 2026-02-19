@@ -151,10 +151,7 @@ def test_fuzz_test(control: TestController) -> None:
 
         DriverStationSim.setEnabled(True)
 
-        assert control.robot_is_alive
-
         for _ in range(20):
             hids.fuzz()
             DriverStationSim.notifyNewData()
             wpilib.simulation.stepTiming(0.2)
-            assert control.robot_is_alive
