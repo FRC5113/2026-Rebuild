@@ -65,7 +65,7 @@ class Shooter:
 
         self.left_kicker_motor.configurator.apply(self.kicker_motor_configs)
         self.right_kicker_motor.configurator.apply(self.kicker_motor_configs)
-        self.voltage_control = controls.VoltageOut(0).with_enable_foc(True)
+        self.voltage_control = controls.DutyCycleOut(0).with_enable_foc(True)
         self.kicker_follower = controls.Follower(
             self.right_kicker_motor.device_id, MotorAlignmentValue.OPPOSED
         )

@@ -8,6 +8,7 @@ from components.shooter import Shooter
 from components.swerve_drive import SwerveDrive
 from game import get_hub_pos
 from lemonlib.smart import SmartPreference
+from magicbot import feedback
 
 
 class ShooterController(StateMachine):
@@ -34,6 +35,7 @@ class ShooterController(StateMachine):
         self.target_rps = 0.0
         self.speed_tolerance = 0.05  # 5% tolerance
         self.target_angle = 0.0
+        self.distance = 0.0
 
     def request_shoot(self):
         self.shooting = True
@@ -43,13 +45,17 @@ class ShooterController(StateMachine):
         robot_pos = self.swerve_drive.get_estimated_pose().translation()
         is_red = DriverStation.getAlliance() == DriverStation.Alliance.kRed
         hub_pos = get_hub_pos(is_red)
-        distance = robot_pos.distance(hub_pos)
+        self.distance = robot_pos.distance(hub_pos)
         self.target_angle = math.atan2(hub_pos.y - robot_pos.y, hub_pos.x - robot_pos.x)
 
         # Linear interpolation without numpy
         self.target_rps = self._linear_interp(
-            distance, self.distance_lookup, self.speed_lookup
+            self.distance, self.distance_lookup, self.speed_lookup
         )
+
+    @feedback
+    def get_distance_hub(self):
+        return self.distance
 
     def _linear_interp(self, x, xp, fp):
         """Fast linear interpolation without numpy."""

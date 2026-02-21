@@ -58,7 +58,7 @@ class MyRobot(LemonRobot):
         can be found in one place. Also, attributes shared by multiple
         components, such as the NavX, need only be created once.
         """
-        self.tuning_enabled = False
+        self.tuning_enabled = True
 
         self.canivore_canbus = CANBus("can0")
         self.rio_canbus = CANBus.roborio()
@@ -182,7 +182,7 @@ class MyRobot(LemonRobot):
         self.shooter_profile = SmartProfile(
             "shooter",
             {
-                "kP": 0.11592,
+                "kP": 0.002,
                 "kI": 0.0,
                 "kD": 0.0,
                 "kS": 0.0,
@@ -224,19 +224,20 @@ class MyRobot(LemonRobot):
         self.rtc_back_right = Transform3d(
             self.offset_x, -self.offset_y, 0.0, Rotation3d(0, 30, -135)
         )
+        self.temp_cam = Transform3d(-0.31115, 0.0, 0.5715, Rotation3d())
 
         self.camera_front_left = LemonCamera(
-            "Front_Left", self.rtc_front_left, self.field_layout
+            "Front_Left", self.temp_cam, self.field_layout
         )
-        self.camera_front_right = LemonCamera(
-            "Front_Right", self.rtc_front_right, self.field_layout
-        )
-        self.camera_back_left = LemonCamera(
-            "Back_Left", self.rtc_back_left, self.field_layout
-        )
-        self.camera_back_right = LemonCamera(
-            "Back_Right", self.rtc_back_right, self.field_layout
-        )
+        # self.camera_front_right = LemonCamera(
+        #     "Front_Right", self.rtc_front_right, self.field_layout
+        # )
+        # self.camera_back_left = LemonCamera(
+        #     "Back_Left", self.rtc_back_left, self.field_layout
+        # )
+        # self.camera_back_right = LemonCamera(
+        #     "Back_Right", self.rtc_back_right, self.field_layout
+        # )
 
         """
         MISCELLANEOUS
@@ -267,7 +268,7 @@ class MyRobot(LemonRobot):
 
     def enabledperiodic(self):
         self.drive_control.engage()
-        self.shooter_controller.engage()
+        # self.shooter_controller.engage()
 
     def autonomousPeriodic(self):
         self._display_auto_trajectory()
@@ -313,60 +314,60 @@ class MyRobot(LemonRobot):
             else:
                 mult = 1.0
 
-            # only apply the curve and slew rate if the input is above the deadband, otherwise set to 0 to avoid useless math
-            if abs(primary_ly) <= 0.0:
-                vx = 0.0
-            else:
-                vx = self.x_filter.calculate(
-                    self.sammi_curve(primary_ly) * mult * self.top_speed
-                )
-            if abs(primary_lx) <= 0.0:
-                vy = 0.0
-            else:
-                vy = self.y_filter.calculate(
-                    self.sammi_curve(primary_lx) * mult * self.top_speed
-                )
-            if abs(primary_rx) <= 0.0:
-                omega = 0.0
-            else:
-                omega = self.theta_filter.calculate(
-                    -self.sammi_curve(primary_rx) * rotate_mult * self.top_omega
-                )
+            # # only apply the curve and slew rate if the input is above the deadband, otherwise set to 0 to avoid useless math
+            # if abs(primary_ly) <= 0.0:
+            #     vx = 0.0
+            # else:
+            #     vx = self.x_filter.calculate(
+            #         self.sammi_curve(primary_ly) * mult * self.top_speed
+            #     )
+            # if abs(primary_lx) <= 0.0:
+            #     vy = 0.0
+            # else:
+            #     vy = self.y_filter.calculate(
+            #         self.sammi_curve(primary_lx) * mult * self.top_speed
+            #     )
+            # if abs(primary_rx) <= 0.0:
+            #     omega = 0.0
+            # else:
+            #     omega = self.theta_filter.calculate(
+            #         -self.sammi_curve(primary_rx) * rotate_mult * self.top_omega
+            #     )
 
-            self.drive_control.drive_manual(
-                vx,
-                -vy,
-                -omega,
-                not self.primary.getCreateButton(),  # temporary
-            )
+            # self.drive_control.drive_manual(
+            #     vx,
+            #     -vy,
+            #     -omega,
+            #     not self.primary.getCreateButton(),  # temporary
+            # )
 
-            if self.primary.getSquareButton():
-                self.swerve_drive.reset_gyro()
-            self.swerve_drive.doTelemetry()
+            # if self.primary.getSquareButton():
+            #     self.swerve_drive.reset_gyro()
+            # self.swerve_drive.doTelemetry()
 
         """
         INTAKE
         """
         with self.consumeExceptions():
             if self.secondary.getLeftBumper():
-                self.intake.set_voltage(8)
+                self.intake.set_voltage(0.5)
 
         """
         SHOOTER
         """
         with self.consumeExceptions():
             if self.secondary.getStartButton():
-                self.shooter.set_voltage(4.75)
+                self.shooter.set_velocity(10)
             if self.secondary.getOptionsButton():
-                self.shooter.set_voltage(4.75)
+                self.shooter.set_velocity(40)
             if self.secondary.getAButton():
-                self.shooter.set_voltage(5)
+                self.shooter.set_velocity(43)
             if self.secondary.getBButton():
-                self.shooter.set_voltage(6)
+                self.shooter.set_velocity(45)
             if self.secondary.getXButton():
-                self.shooter.set_voltage(7)
+                self.shooter.set_velocity(47)
             if self.secondary.getYButton():
-                self.shooter.set_voltage(8)
+                self.shooter.set_velocity(50)
 
             if self.secondary.getRightTriggerAxis() >= 0.8:
                 self.shooter.set_kicker_voltage(8)

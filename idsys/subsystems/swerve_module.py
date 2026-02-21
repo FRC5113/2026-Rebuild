@@ -28,8 +28,8 @@ class SwerveModule(SysidSubsystem):
     def __init__(self) -> None:
         super().__init__()
         self.canbus = CANBus("can0")
-        self.steer = TalonFX(32, self.canbus)
-        self.encoder = CANcoder(33, self.canbus)
+        self.steer = TalonFX(22, self.canbus)
+        self.encoder = CANcoder(23, self.canbus)
 
         self.steer.get_fault_field().set_update_frequency(
             frequency_hz=4, timeout_seconds=0.01
