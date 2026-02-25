@@ -1,6 +1,7 @@
 import phoenix6
 from commands2.button import CommandXboxController, Trigger
 from commands2.sysid import SysIdRoutine
+from subsystems.arm import Arm
 from subsystems.flywheel import Flywheel
 from subsystems.swerve_module import SwerveModule
 from subsystems.sysid_subsystem import SysidSubsystem
@@ -25,12 +26,20 @@ class SysIdRoutineBot:
             name="flywheel",
         )
 
+        # Single-jointed arm – adjust CAN ID, gearing, and soft limits to match your mechanism
+        self.arm = Arm(
+            phoenix6.hardware.TalonFX(4),
+            gearing=100.0,
+            name="arm",
+        )
+
         self.controller = CommandXboxController(0)
 
     def configureBindings(self) -> None:
         # self.swerve_drive.setDefaultCommand(self.swerve_drive.defaultCommand())
         self.flywheel.setDefaultCommand(self.flywheel.defaultCommand())
         self.swerve_module.setDefaultCommand(self.swerve_module.defaultCommand())
+        self.arm.setDefaultCommand(self.arm.defaultCommand())
 
         def bindSysId(subsystem: SysidSubsystem, pov: Trigger):
             (pov & self.controller.a()).whileTrue(
@@ -49,3 +58,4 @@ class SysIdRoutineBot:
         # bindSysId(self.swerve_drive, self.controller.povUp())
         bindSysId(self.flywheel, self.controller.povLeft())
         bindSysId(self.swerve_module, self.controller.povDown())
+        bindSysId(self.arm, self.controller.povRight())
