@@ -44,12 +44,12 @@ class PhysicsEngine:
 
         self.robot.pigeon.sim_state.set_supply_voltage(5.0)
 
-        self.vision_sim_front_left = LemonCameraSim(
-            robot.camera_front_left, robot.field_layout, fov=65.0, fps=60.0
-        )
-        self.vision_sim_front_right = LemonCameraSim(
-            robot.camera_front_right, robot.field_layout, fov=65.0, fps=60.0
-        )
+        # self.vision_sim_front_left = LemonCameraSim(
+        #     robot.camera_front_left, robot.field_layout, fov=65.0, fps=60.0
+        # )
+        # self.vision_sim_front_right = LemonCameraSim(
+        #     robot.camera_front_right, robot.field_layout, fov=65.0, fps=60.0
+        # )
         self.vision_sim_back_left = LemonCameraSim(
             robot.camera_back_left, robot.field_layout, fov=65.0, fps=60.0
         )
@@ -102,7 +102,7 @@ class PhysicsEngine:
         # self.robot.camera.set_robot_pose(pose)
         self.robot.pigeon.sim_state.set_raw_yaw(self.pose.rotation().degrees())
 
-        self.vision_sim_front_left.update(self.pose)
-        self.vision_sim_front_right.update(self.pose)
+        # self.vision_sim_front_left.update(self.pose)
+        # self.vision_sim_front_right.update(self.pose)
         self.vision_sim_back_left.update(self.pose)
         self.vision_sim_back_right.update(self.pose)

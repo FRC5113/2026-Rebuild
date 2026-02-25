@@ -48,6 +48,8 @@ class SwerveDrive(Sendable):
     rotationX = will_reset_to(0)
     field_relative = will_reset_to(True)
     has_desired_pose = will_reset_to(False)
+    has_pointing_target = will_reset_to(False)
+    pointing_angle = 0.0
 
     doing_sysid = will_reset_to(False)
     sysid_rotate = will_reset_to(False)
@@ -312,23 +314,42 @@ class SwerveDrive(Sendable):
         )
         self.drive(speeds.vx, speeds.vy, speeds.omega, False, self.period)
 
-    def point_towards_joy(self, rightX: float, rightY: float):
-        # Convert joystick input to rotation command for pointing robot
+    def point_towards_joy(
+        self,
+        rightX: float,
+        rightY: float,
+        translationX: units.meters_per_second = 0.0,
+        translationY: units.meters_per_second = 0.0,
+        field_relative: bool = True,
+        period: units.seconds = 0.02,
+    ):
+        """Drive while pointing the robot in the direction indicated by the right joystick.
+        If the joystick is inside the deadband, translation is applied with no rotation."""
         moved = abs(rightX) > 0.1 or abs(rightY) > 0.1  # Deadband check
         if not moved:
-            return 0.0
+            self.drive(translationX, translationY, 0.0, field_relative, period)
+            return
         # Convert joystick position to angle, offset by 90 degrees to align with robot forward
         angle = math.atan2(rightY, rightX) - math.radians(90)
-        current_angle = math.radians(self.pigeon.get_yaw().value)
-        output = self.smart_theta_controller.calculate(current_angle, angle)
-        return output
+        self.point_towards(angle, translationX, translationY, field_relative, period)
 
-    def point_towards(self, angle: units.radians):
-        current_angle = math.radians(self.pigeon.get_yaw().value)
-        output = self.smart_theta_controller.calculate(current_angle, angle)
-        self.translationX = 0.0
-        self.translationY = 0.0
-        self.rotationX = output
+    def point_towards(
+        self,
+        angle: units.radians,
+        translationX: units.meters_per_second = 0.0,
+        translationY: units.meters_per_second = 0.0,
+        field_relative: bool = True,
+        period: units.seconds = 0.02,
+    ):
+        """Drive while pointing the robot towards a given angle.
+        Translation inputs are passed through; rotation is computed in execute()
+        using the freshest gyro reading."""
+        self.translationX = translationX
+        self.translationY = translationY
+        self.field_relative = field_relative
+        self.period = period
+        self.has_pointing_target = True
+        self.pointing_angle = angle
 
     def driveRobotRelative(self, speeds: ChassisSpeeds):
         """Drives the robot using ROBOT RELATIVE speeds.
@@ -407,7 +428,7 @@ class SwerveDrive(Sendable):
     """
 
     def execute(self) -> None:
-        BaseStatusSignal.refresh_all(self.all_signals)
+        BaseStatusSignal.wait_for_all(0.02, *self.all_signals)
         self.cached_yaw = BaseStatusSignal.get_latency_compensated_value(
             self.pigeon.get_yaw(), self.pigeon.get_angular_velocity_z_world()
         )
@@ -424,6 +445,13 @@ class SwerveDrive(Sendable):
             chassis_rot,
             tuple(self.module_positions),
         )
+
+        # Compute rotation from theta PID using the fresh gyro reading
+        if self.has_pointing_target:
+            current_angle = math.radians(self.cached_yaw)
+            self.rotationX = self.smart_theta_controller.calculate(
+                current_angle, self.pointing_angle
+            )
 
         # If we have a target pose and aren't close enough (>2cm), use holonomic controller
         if self.has_desired_pose and self.get_distance_from_desired_pose() > 0.02:

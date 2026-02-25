@@ -8,9 +8,7 @@ from phoenix6.configs import (
     CANcoderConfiguration,
     ClosedLoopGeneralConfigs,
     FeedbackConfigs,
-    Slot0Configs,
     TalonFXConfiguration,
-    Slot0Configs,
 )
 from phoenix6.hardware import CANcoder, TalonFX
 from phoenix6.signals import (
@@ -19,9 +17,14 @@ from phoenix6.signals import (
     SensorDirectionValue,
 )
 from wpimath import units
-from wpimath.controller import SimpleMotorFeedforwardMeters
+from wpimath.controller import (
+    PIDController,
+    ProfiledPIDController,
+    SimpleMotorFeedforwardMeters,
+)
 from wpimath.geometry import Rotation2d
 from wpimath.kinematics import SwerveModulePosition, SwerveModuleState
+from wpimath.trajectory import TrapezoidProfile
 from wpiutil import Sendable
 
 from lemonlib.ctre import tryUntilOk
@@ -54,6 +57,8 @@ class SwerveWheel(Sendable):
     sysid_volts = will_reset_to(0.0)
 
     signals: List[StatusSignal] = []
+
+    wpimode = False
 
     """
     INITIALIZATION METHODS
@@ -179,51 +184,49 @@ class SwerveWheel(Sendable):
 
         self.cached_drive_rot = 0.0
 
-    def on_enable(self):
-        if self.tuning_enabled:
-            self.speed_controller = self.speed_profile.create_ctre_flywheel_controller()
-            self.direction_controller = self.direction_profile.create_ctre_turret_controller()
-            self.direction_motor_configs.slot0 = self.direction_controller[0]
-            self.direction_motor_configs.motion_magic = self.direction_controller[1]
-            self.speed_motor_configs.slot0 = self.speed_controller
-        self.feedforward = SimpleMotorFeedforwardMeters(0, 0, 0)
+        self.speed_pid = PIDController(0.0, 0.0, 0.0)
+        self.speed_ff = SimpleMotorFeedforwardMeters(0.17, 0.104, 0.01)
+
+        self.direction_pid = ProfiledPIDController(
+            3.0, 0.0, 0.0, TrapezoidProfile.Constraints(400.0, 4000.0)
+        )
+        self.direction_pid.enableContinuousInput(-math.pi, math.pi)
+        self.direction_ff = SimpleMotorFeedforwardMeters(0.14, 0.375, 0.0)
 
     def on_enable(self):
-        self.speed_controller = self.speed_profile.create_flywheel_controller(
-            f"{self.speed_motor.device_id}_speed"
-        )
-        direction_ff = self.direction_profile.create_ctre_turret_controller()
-        self.direction_controller = (
-            Slot0Configs()
-            .with_k_p(direction_ff.k_p)
-            .with_k_d(direction_ff.k_d)
-            .with_k_a(0.0)
-            .with_k_s(0.0)
-            .with_k_v(0.0)
-        )
-        self.direction_motor_configs.slot0 = self.direction_controller
-        # self.speed_motor_configs.slot0 = self.speed_controller
+        if not self.wpimode:
+            if self.tuning_enabled:
+                self.speed_controller = (
+                    self.speed_profile.create_ctre_flywheel_controller()
+                )
+                self.direction_controller = (
+                    self.direction_profile.create_ctre_turret_controller()
+                )
+                self.direction_motor_configs.slot0 = self.direction_controller[0]
+                self.direction_motor_configs.motion_magic = self.direction_controller[1]
+                self.speed_motor_configs.slot0 = self.speed_controller
 
-        self.feedforward = SimpleMotorFeedforwardMeters(
-            direction_ff.k_s, direction_ff.k_v, direction_ff.k_a
-        )
-        if self.tuning_enabled:
-            tryUntilOk(
-                5,
-                lambda: self.direction_motor.configurator.apply(
-                    self.direction_motor_configs,
-                ),
+                tryUntilOk(
+                    5,
+                    lambda: self.direction_motor.configurator.apply(
+                        self.direction_motor_configs,
+                    ),
+                )
+
+                tryUntilOk(
+                    5,
+                    lambda: self.speed_motor.configurator.apply(
+                        self.speed_motor_configs
+                    ),
+                )
+
+            self.direction_control = controls.MotionMagicExpoVoltage(0).with_enable_foc(
+                True
             )
 
-            tryUntilOk(
-                5, lambda: self.speed_motor.configurator.apply(self.speed_motor_configs)
-            )
-
-        self.direction_control = controls.MotionMagicExpoVoltage(0).with_enable_foc(True)
-
-        self.speed_control = controls.VelocityVoltage(0).with_enable_foc(
-            True
-        )  # FOC = Field Oriented Control for better motion
+            self.speed_control = controls.VelocityVoltage(0).with_enable_foc(
+                True
+            )  # FOC = Field Oriented Control for better motion
 
     """
     INFORMATIONAL METHODS
@@ -376,8 +379,20 @@ class SwerveWheel(Sendable):
         # This prevents the robot from drifting while the wheel is still rotating
         target_speed = target_speed_rot * target_displacement.cos()
 
-        self.speed_motor.set_control(self.speed_control.with_velocity(target_speed))
+        if self.wpimode:
+            direct_control = controls.VoltageOut(
+                self.direction_ff.calculate(target_speed)
+                + self.direction_pid.calculate(current_angle.radians(), target_angle)
+            )
+            speed_control = controls.VoltageOut(
+                self.speed_ff.calculate(target_speed)
+                + self.speed_pid.calculate(self.getVelocity(), target_speed)
+            )
+        else:
+            direct_control = controls.MotionMagicExpoVoltage(
+                target_angle / math.tau
+            ).with_enable_foc(True)
+            speed_control = controls.VelocityVoltage(target_speed).with_enable_foc(True)
 
-        self.direction_motor.set_control(
-            self.direction_control.with_position(target_angle / math.tau)
-        )
+        self.speed_motor.set_control(speed_control)
+        self.direction_motor.set_control(direct_control)

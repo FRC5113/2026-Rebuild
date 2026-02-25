@@ -33,12 +33,12 @@ class Shooter:
 
     shooter_velocity = will_reset_to(0.0)
     shooter_voltage = will_reset_to(0.0)
-    kicker_voltage = will_reset_to(0.0)
+    kicker_duty = will_reset_to(0.0)
     manual_control = will_reset_to(False)
 
     use_motion_magic = will_reset_to(False)
-    motion_magic_acceleration = 200 # rps/s, TUNE
-    motion_magic_jerk = 2000 # rps/s/s, TUNE
+    motion_magic_acceleration = 200  # rps/s, TUNE
+    motion_magic_jerk = 2000  # rps/s/s, TUNE
 
     def setup(self):
         self.shooter_motors_config = TalonFXConfiguration()
@@ -50,7 +50,9 @@ class Shooter:
         )
         self.shooter_motors_config.motion_magic = (
             MotionMagicConfigs()
-            .with_motion_magic_acceleration(self.motion_magic_acceleration)  # RPS/s - TUNE THIS
+            .with_motion_magic_acceleration(
+                self.motion_magic_acceleration
+            )  # RPS/s - TUNE THIS
             .with_motion_magic_jerk(self.motion_magic_jerk)  # RPS/s² - TUNE THIS
         )
 
@@ -80,7 +82,7 @@ class Shooter:
 
         self.left_kicker_motor.configurator.apply(self.kicker_motor_configs)
         self.right_kicker_motor.configurator.apply(self.kicker_motor_configs)
-        self.voltage_control = controls.DutyCycleOut(0).with_enable_foc(True)
+        self.voltage_control = controls.VoltageOut(0).with_enable_foc(True)
         self.kicker_follower = controls.Follower(
             self.right_kicker_motor.device_id, MotorAlignmentValue.OPPOSED
         )
@@ -101,7 +103,7 @@ class Shooter:
     CONTROL METHODS
     """
 
-    def set_velocity(self, speed: float, use_motion_magic : bool = False):
+    def set_velocity(self, speed: float, use_motion_magic: bool = False):
         self.manual_control = False
         self.use_motion_magic = use_motion_magic
         self.shooter_velocity = speed
@@ -110,8 +112,8 @@ class Shooter:
         self.manual_control = True
         self.shooter_voltage = max(0, min(volts, 12))
 
-    def set_kicker_voltage(self, volts: units.volts):
-        self.kicker_voltage = volts
+    def set_kicker(self, value: float):
+        self.kicker_duty = value  # ha duty thats funny right there
 
     """
     INFORMATIONAL METHODS
@@ -127,7 +129,7 @@ class Shooter:
 
     def execute(self):
         self.right_kicker_motor.set_control(
-            self.voltage_control.with_output(self.kicker_voltage)
+            self.voltage_control.with_output(self.kicker_duty)
         )
         self.left_kicker_motor.set_control(self.kicker_follower)
 

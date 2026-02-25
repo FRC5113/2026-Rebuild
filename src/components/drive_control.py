@@ -32,6 +32,9 @@ class DriveControl(StateMachine):
     sysid_volts = will_reset_to(0.0)
     point_to_target = will_reset_to(False)
     point_target: units.degrees = 0.0
+    point_joy_target = will_reset_to(False)
+    point_joy_x = will_reset_to(0.0)
+    point_joy_y = will_reset_to(0.0)
     sample: SwerveSample = None  # Trajectory sample for autonomous path following
 
     def setup(self):
@@ -46,10 +49,11 @@ class DriveControl(StateMachine):
         field_relative: bool,
     ):
         """
-        Request manual drive control. Only accepted when in 'free' state
-        to prevent overriding other control modes.
+        Request manual drive control. Accepted in 'free' and 'point_towards_target'
+        states. In point_towards_target, translation is passed through but rotation
+        is overridden by the pointing PID.
         """
-        if self.current_state == "free":
+        if self.current_state in ("free", "point_towards_target", "point_towards_joy"):
             self.translationX = translationX
             self.translationY = translationY
             self.rotationX = rotationX
@@ -72,6 +76,12 @@ class DriveControl(StateMachine):
         """Request the robot to point towards a specific angle."""
         self.point_to_target = True
         self.point_target = angle
+
+    def point_to_joy(self, rightX: float, rightY: float):
+        """Request the robot to point in the direction of the right joystick."""
+        self.point_joy_target = True
+        self.point_joy_x = rightX
+        self.point_joy_y = rightY
 
     def drive_auto(self, sample: SwerveSample = None):
         """Provide a trajectory sample for autonomous path following."""
@@ -128,17 +138,46 @@ class DriveControl(StateMachine):
             self.next_state("run_auton_routine")
         if self.go_to_pose:
             self.next_state("going_to_pose")
+        if self.point_to_target:
+            self.next_state("point_towards_target")
+        if self.point_joy_target:
+            self.next_state("point_towards_joy")
         if self.drive_sysid:
             self.next_state("drive_sysid_state")
 
     @state
     def point_towards_target(self):
         """
-        State to rotate robot to face a specific target.
-        Exits when target is reached or no longer requested.
+        State to drive while pointing the robot at a specific target angle.
+        Translation comes from manual input; rotation is PID-controlled.
+        Exits when target is no longer requested.
         """
-        self.swerve_drive.point_towards(self.point_target)
+        self.swerve_drive.point_towards(
+            self.point_target,
+            self.translationX,
+            self.translationY,
+            self.field_relative,
+            self.period,
+        )
         if not self.point_to_target:
+            self.next_state("free")
+
+    @state
+    def point_towards_joy(self):
+        """
+        State to drive while pointing the robot in the direction of the right joystick.
+        Translation comes from manual input; rotation is derived from joystick angle.
+        Exits when joystick pointing is no longer requested.
+        """
+        self.swerve_drive.point_towards_joy(
+            self.point_joy_x,
+            self.point_joy_y,
+            self.translationX,
+            self.translationY,
+            self.field_relative,
+            self.period,
+        )
+        if not self.point_joy_target:
             self.next_state("free")
 
     @state

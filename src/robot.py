@@ -2,47 +2,37 @@ import math
 from pathlib import Path
 
 import wpilib
-from wpilib import (
-    Field2d,
-    RobotController,
-    DriverStation,
-    PowerDistribution,
-)
-
 from magicbot import feedback
 from phoenix6 import CANBus
 from phoenix6.hardware import CANcoder, Pigeon2, TalonFX, TalonFXS
 from robotpy_apriltag import AprilTagFieldLayout
-from wpilib import DigitalInput, DriverStation, DutyCycleEncoder, Field2d
+from wpilib import (
+    DigitalInput,
+    DriverStation,
+    DutyCycleEncoder,
+    Field2d,
+    RobotController,
+)
 from wpimath import units
 from wpimath.filter import SlewRateLimiter
-from wpimath.geometry import Transform3d, Rotation3d
-
-from robotpy_apriltag import AprilTagField, AprilTagFieldLayout
-
-from phoenix6.hardware import CANcoder, TalonFX, Pigeon2, TalonFXS
-from phoenix6 import CANBus
-
-from magicbot import feedback
-
-from lemonlib import LemonInput
-from lemonlib.util import (
-    curve,
-    AlertManager,
-    AlertType,
-)
-from lemonlib.smart import SmartPreference, SmartProfile
-from lemonlib import LemonRobot, LemonCamera
+from wpimath.geometry import Rotation3d, Transform3d
 
 from autonomous.auto_base import AutoBase
-from components.swerve_drive import SwerveDrive
-from components.swerve_wheel import SwerveWheel
 from components.drive_control import DriveControl
-from components.sysid_drive import SysIdDriveLinear
 from components.intake import Intake
 from components.odometry import Odometry
 from components.shooter import Shooter
 from components.shooter_controller import ShooterController
+from components.swerve_drive import SwerveDrive
+from components.swerve_wheel import SwerveWheel
+from components.sysid_drive import SysIdDriveLinear
+from lemonlib import LemonCamera, LemonInput, LemonRobot
+from lemonlib.smart import SmartPreference, SmartProfile
+from lemonlib.util import (
+    AlertManager,
+    AlertType,
+    curve,
+)
 
 
 class MyRobot(LemonRobot):
@@ -244,18 +234,18 @@ class MyRobot(LemonRobot):
         )
         self.temp_cam = Transform3d(-0.31115, 0.0, 0.5715, Rotation3d())
 
-        self.camera_front_left = LemonCamera(
-            "Front_Left", self.temp_cam, self.field_layout
-        )
+        # self.camera_front_left = LemonCamera(
+        #     "Front_Left", self.temp_cam, self.field_layout
+        # )
         # self.camera_front_right = LemonCamera(
         #     "Front_Right", self.rtc_front_right, self.field_layout
         # )
-        # self.camera_back_left = LemonCamera(
-        #     "Back_Left", self.rtc_back_left, self.field_layout
-        # )
-        # self.camera_back_right = LemonCamera(
-        #     "Back_Right", self.rtc_back_right, self.field_layout
-        # )
+        self.camera_back_left = LemonCamera(
+            "Back_Left", self.rtc_back_left, self.field_layout
+        )
+        self.camera_back_right = LemonCamera(
+            "Back_Right", self.rtc_back_right, self.field_layout
+        )
 
         """
         MISCELLANEOUS
@@ -332,36 +322,36 @@ class MyRobot(LemonRobot):
             else:
                 mult = 1.0
 
-            # # only apply the curve and slew rate if the input is above the deadband, otherwise set to 0 to avoid useless math
-            # if abs(primary_ly) <= 0.0:
-            #     vx = 0.0
-            # else:
-            #     vx = self.x_filter.calculate(
-            #         self.sammi_curve(primary_ly) * mult * self.top_speed
-            #     )
-            # if abs(primary_lx) <= 0.0:
-            #     vy = 0.0
-            # else:
-            #     vy = self.y_filter.calculate(
-            #         self.sammi_curve(primary_lx) * mult * self.top_speed
-            #     )
-            # if abs(primary_rx) <= 0.0:
-            #     omega = 0.0
-            # else:
-            #     omega = self.theta_filter.calculate(
-            #         -self.sammi_curve(primary_rx) * rotate_mult * self.top_omega
-            #     )
+            # only apply the curve and slew rate if the input is above the deadband, otherwise set to 0 to avoid useless math
+            if abs(primary_ly) <= 0.0:
+                vx = 0.0
+            else:
+                vx = self.x_filter.calculate(
+                    self.sammi_curve(primary_ly) * mult * self.top_speed
+                )
+            if abs(primary_lx) <= 0.0:
+                vy = 0.0
+            else:
+                vy = self.y_filter.calculate(
+                    self.sammi_curve(primary_lx) * mult * self.top_speed
+                )
+            if abs(primary_rx) <= 0.0:
+                omega = 0.0
+            else:
+                omega = self.theta_filter.calculate(
+                    -self.sammi_curve(primary_rx) * rotate_mult * self.top_omega
+                )
 
-            # self.drive_control.drive_manual(
-            #     vx,
-            #     -vy,
-            #     -omega,
-            #     not self.primary.getCreateButton(),  # temporary
-            # )
+            self.drive_control.drive_manual(
+                vx,
+                -vy,
+                -omega,
+                not self.primary.getCreateButton(),  # temporary
+            )
 
-            # if self.primary.getSquareButton():
-            #     self.swerve_drive.reset_gyro()
-            # self.swerve_drive.doTelemetry()
+            if self.primary.getSquareButton():
+                self.swerve_drive.reset_gyro()
+            self.swerve_drive.doTelemetry()
 
         """
         INTAKE
@@ -388,7 +378,7 @@ class MyRobot(LemonRobot):
                 self.shooter.set_velocity(50)
 
             if self.secondary.getRightTriggerAxis() >= 0.8:
-                self.shooter.set_kicker_voltage(8)
+                self.shooter.set_kicker(0.5)
 
     def disabledPeriodic(self):
         # make magicbot happy

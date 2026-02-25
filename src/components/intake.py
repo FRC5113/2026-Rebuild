@@ -1,12 +1,9 @@
-from magicbot import will_reset_to
-from phoenix6.configs import TalonFXConfiguration
-from phoenix6.controls import VoltageOu
 import enum
 
 from magicbot import feedback, will_reset_to
 from phoenix6 import controls
+from phoenix6.configs import TalonFXConfiguration
 from phoenix6.configs.talon_fx_configs import TalonFXConfiguration
-
 from phoenix6.hardware import TalonFX
 from phoenix6.signals import (
     MotorAlignmentValue,
