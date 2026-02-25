@@ -4,7 +4,7 @@ from choreo.trajectory import SwerveSample
 from magicbot import feedback, will_reset_to
 from phoenix6 import BaseStatusSignal
 from phoenix6.hardware import Pigeon2
-from wpilib import DriverStation, SmartDashboard
+from wpilib import DriverStation, RobotBase, SmartDashboard, Timer
 from wpilib.sysid import SysIdRoutineLog
 from wpimath import units
 from wpimath.controller import HolonomicDriveController
@@ -19,7 +19,7 @@ from wpimath.kinematics import (
 from wpiutil import Sendable, SendableBuilder
 
 from components.swerve_wheel import SwerveWheel
-from lemonlib.smart import SmartController, SmartProfile
+from lemonlib.smart import SmartController, SmartPreference, SmartProfile
 from lemonlib.util import Alert, AlertType
 
 
@@ -37,6 +37,10 @@ class SwerveDrive(Sendable):
     pigeon: Pigeon2  # IMU/gyroscope for heading measurement
     translation_profile: SmartProfile
     rotation_profile: SmartProfile
+    telemetry_enabled = SmartPreference(True)
+    telemetry_period = SmartPreference(0.1)
+    adv_scope_enabled = SmartPreference(True)
+    adv_scope_period = SmartPreference(0.1)
 
     # will_reset_to ensures these values reset to defaults each robot loop iteration
     translationX = will_reset_to(0)
@@ -46,11 +50,13 @@ class SwerveDrive(Sendable):
     has_desired_pose = will_reset_to(False)
 
     doing_sysid = will_reset_to(False)
+    sysid_rotate = will_reset_to(False)
     sysid_volts = will_reset_to(0.0)
 
     def __init__(self) -> None:
         Sendable.__init__(self)
 
+    @staticmethod
     def shouldFlipPath():
         # Boolean supplier that controls when the path will be mirrored for the red alliance
         # This will flip the path being followed to the red side of the field.
@@ -66,12 +72,13 @@ class SwerveDrive(Sendable):
         This function is automatically called after the components have
         been injected.
         """
+
         # Define wheel positions relative to robot center (using standard WPILib coordinate system)
         # Positive X is forward, positive Y is left
-        self.front_left_pose = Translation2d(-self.offset_x, self.offset_y)
-        self.front_right_pose = Translation2d(self.offset_x, self.offset_y)
-        self.rear_left_pose = Translation2d(-self.offset_x, -self.offset_y)
-        self.rear_right_pose = Translation2d(self.offset_x, -self.offset_y)
+        self.front_left_pose = Translation2d(self.offset_x, self.offset_y)
+        self.front_right_pose = Translation2d(-self.offset_x, self.offset_y)
+        self.rear_left_pose = Translation2d(self.offset_x, -self.offset_y)
+        self.rear_right_pose = Translation2d(-self.offset_x, -self.offset_y)
         # Kinematics converts between chassis speeds and individual module states
         self.kinematics = SwerveDrive4Kinematics(
             self.front_left_pose,
@@ -116,6 +123,11 @@ class SwerveDrive(Sendable):
 
         self.module_positions = [None] * 4
 
+        self.cached_yaw = 0.0
+        self.cached_yaw_rate = 0.0
+
+        if RobotBase.isSimulation():
+            self.pigeon.get_fault_field().wait_for_update(timeout_seconds=5.0)
         # 4 signals per module + yaw + yaw rate
         self.all_signals = []
 
@@ -124,7 +136,10 @@ class SwerveDrive(Sendable):
 
         self.all_signals.append(self.pigeon.get_yaw())
 
-        # BaseStatusSignal.set_update_frequency_for_all(250, self.all_signals)
+        BaseStatusSignal.set_update_frequency_for_all(250, self.all_signals)
+
+        self._last_adv_scope_time = 0.0
+        self._last_telem_time = 0.0
 
     def initSendable(self, builder: SendableBuilder) -> None:
         # Configure data sent to SmartDashboard's swerve widget
@@ -260,11 +275,12 @@ class SwerveDrive(Sendable):
         # System identification mode for characterizing drive motors
         self.doing_sysid = True
         self.sysid_volts = volts
-        if rot == 0.0:
-            # Small forward motion to keep wheels aligned during linear characterization
-            self.translationX = 0.01
-            self.translationY = 0.0
-        self.rotationX = rot
+
+    def sysid_rot(self, volts: float, rot: float = 0.0) -> None:
+        # System identification mode for characterizing drive motors
+        self.doing_sysid = True
+        self.sysid_volts = volts
+        self.sysid_rotate = True
 
     def set_desired_pose(self, pose: Pose2d):
         self.desired_pose = pose
@@ -341,6 +357,12 @@ class SwerveDrive(Sendable):
     def sendAdvantageScopeData(self):
         """Put swerve module setpoints and measurements to NT.
         This is used mainly for AdvantageScope's swerve tab"""
+        if not self.adv_scope_enabled:
+            return
+        now = Timer.getFPGATimestamp()
+        if now - self._last_adv_scope_time < self.adv_scope_period:
+            return
+        self._last_adv_scope_time = now
         # Format: [angle1, speed1, angle2, speed2, ...] for each module
         swerve_setpoints = []
         for state in self.swerve_module_states:
@@ -361,31 +383,20 @@ class SwerveDrive(Sendable):
     # characterized.
     def log(self, sys_id_routine: SysIdRoutineLog) -> None:
         # Log voltage, position, and velocity for each drive motor (used for system identification)
-        sys_id_routine.motor("drive-front-left").voltage(
-            self.front_left.getVoltage()
-        ).position(self.front_left.getPosition().distance).velocity(
-            self.front_left.getVelocity()
-        )
-
-        sys_id_routine.motor("drive-front-right").voltage(
-            self.front_right.getVoltage()
-        ).position(self.front_right.getPosition().distance).velocity(
-            self.front_right.getVelocity()
-        )
-
-        sys_id_routine.motor("drive-rear-left").voltage(
-            self.rear_left.getVoltage()
-        ).position(self.rear_left.getPosition().distance).velocity(
-            self.rear_left.getVelocity()
-        )
-
-        sys_id_routine.motor("drive-rear-right").voltage(
-            self.rear_right.getVoltage()
-        ).position(self.rear_right.getPosition().distance).velocity(
-            self.rear_right.getVelocity()
-        )
+        for name, module in zip(("fl", "fr", "rl", "rr"), self.modules):
+            sys_id_routine.motor(f"swerve/drive/{name}").voltage(
+                module.getVoltage()
+            ).position(module.cached_drive_rot / module.drive_rot_per_meter).velocity(
+                module.getVelocity()
+            )
 
     def doTelemetry(self):
+        if not self.telemetry_enabled:
+            return
+        now = Timer.getFPGATimestamp()
+        if now - self._last_telem_time < self.telemetry_period:
+            return
+        self._last_telem_time = now
         self.front_left.putTelem()
         self.front_right.putTelem()
         self.rear_left.putTelem()
@@ -396,19 +407,18 @@ class SwerveDrive(Sendable):
     """
 
     def execute(self) -> None:
+        BaseStatusSignal.refresh_all(self.all_signals)
+        self.cached_yaw = BaseStatusSignal.get_latency_compensated_value(
+            self.pigeon.get_yaw(), self.pigeon.get_angular_velocity_z_world()
+        )
+        self.cached_yaw_rate = self.pigeon.get_angular_velocity_z_world().value
+
         self.sendAdvantageScopeData()
 
         for i, module in enumerate(self.modules):
-            self.module_positions[i] = module.getPosition(True)
+            self.module_positions[i] = module.getPosition()
 
-        chassis_rot = (
-            Rotation2d(
-                BaseStatusSignal.get_latency_compensated_value(
-                    self.pigeon.get_yaw(), self.pigeon.get_angular_velocity_z_world()
-                )
-            )
-            + self.pigeon_offset
-        )
+        chassis_rot = Rotation2d().fromDegrees(self.cached_yaw) + self.pigeon_offset
 
         self.pose_estimator.update(
             chassis_rot,
@@ -442,11 +452,10 @@ class SwerveDrive(Sendable):
                         chassis_rot,
                     )
                     if self.field_relative
-                    else ChassisSpeeds.fromFieldRelativeSpeeds(
+                    else ChassisSpeeds(
                         self.translationX,
                         self.translationY,
                         self.rotationX,
-                        Rotation2d(),  # Zero rotation = robot-relative
                     )
                 ),
                 self.period,

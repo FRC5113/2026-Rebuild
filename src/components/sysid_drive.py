@@ -1,4 +1,6 @@
 from commands2.sysid import SysIdRoutine
+from phoenix6 import SignalLogger
+from wpilib.sysid import SysIdRoutineLog
 from wpimath import units
 
 from components.drive_control import DriveControl
@@ -13,7 +15,13 @@ class SysIdDriveLinear(MagicSysIdRoutine):
 
     def setup(self):
         self.setup_sysid(
-            SysIdRoutine.Config(rampRate=1, stepVoltage=7.0, timeout=5),
+            SysIdRoutine.Config(
+                rampRate=1,
+                stepVoltage=7.0,
+                recordState=lambda state: SignalLogger.write_string(
+                    "state", SysIdRoutineLog.stateEnumToString(state)
+                ),
+            ),
             SysIdRoutine.Mechanism(
                 self.drive_sysid,
                 self.swerve_drive.log,

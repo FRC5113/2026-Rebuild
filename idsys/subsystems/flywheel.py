@@ -57,7 +57,7 @@ class Flywheel(SysidSubsystem):
     # Tell SysId how to plumb the driving voltage to the motors.
     @typing.override
     def drive(self, voltage: volts) -> None:
-        self.flywheel.set_control(VoltageOut(voltage))
+        self.flywheel.set_control(VoltageOut(voltage).with_enable_foc(True))
 
     # Tell SysId how to record a frame of data for each motor on the mechanism being
     # characterized.

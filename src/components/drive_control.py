@@ -2,7 +2,7 @@ from choreo.trajectory import SwerveSample
 from magicbot import StateMachine, will_reset_to
 from magicbot.state_machine import state
 from phoenix6.hardware import Pigeon2
-from wpilib import DriverStation
+from wpilib import DriverStation, RobotBase
 from wpimath import units
 from wpimath.geometry import Pose2d
 
@@ -33,6 +33,10 @@ class DriveControl(StateMachine):
     point_to_target = will_reset_to(False)
     point_target: units.degrees = 0.0
     sample: SwerveSample = None  # Trajectory sample for autonomous path following
+
+    def setup(self):
+        if RobotBase.isSimulation():
+            self.pigeon.get_fault_field().wait_for_update(timeout_seconds=5.0)
 
     def drive_manual(
         self,

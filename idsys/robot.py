@@ -1,5 +1,6 @@
 from commands2 import CommandScheduler, TimedCommandRobot
 from sysidroutinebot import SysIdRoutineBot
+from phoenix6 import SignalLogger
 
 
 class MyRobot(TimedCommandRobot):

@@ -7,6 +7,8 @@ from game import get_hub_pos
 from wpilib import DriverStation
 from lemonlib.smart import SmartPreference
 from wpimath.kinematics import ChassisSpeeds
+from magicbot import feedback
+
 
 class ShooterController(StateMachine):
     drive_control: DriveControl
@@ -36,6 +38,7 @@ class ShooterController(StateMachine):
         self.target_rps = 0.0
         self.speed_tolerance = 0.05  # 5% tolerance
         self.target_angle = 0.0
+        self.distance = 0.0
 
     def request_shoot(self):
         self.shooting = True
@@ -127,6 +130,7 @@ class ShooterController(StateMachine):
     
     def _linear_interp(self, x: float, xp: list[float], fp: list[float]):
         """Fast linear interpolation without ."""
+
         if x <= xp[0]:
             return fp[0]
         if x >= xp[-1]:
@@ -182,8 +186,7 @@ class ShooterController(StateMachine):
         # aim while still driving
         self.drive_control.point_to(self.target_angle)
         self.shooter.set_velocity(self.target_rps)
-
-        # TODO: Activate indexer here
+        self.shooter.set_kicker_voltage(8.0)  # TODO Tune this value
 
         if not self.shooting:
             self.next_state("idle")
