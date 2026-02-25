@@ -10,6 +10,7 @@ from phoenix6.configs import (
     FeedbackConfigs,
     Slot0Configs,
     TalonFXConfiguration,
+    Slot0Configs,
 )
 from phoenix6.hardware import CANcoder, TalonFX
 from phoenix6.signals import (
@@ -177,6 +178,14 @@ class SwerveWheel(Sendable):
         self.nt = SmartNT("Swerve Modules")
 
         self.cached_drive_rot = 0.0
+
+    def on_enable(self):
+        if self.tuning_enabled:
+            self.speed_controller = self.speed_profile.create_ctre_flywheel_controller()
+            self.direction_controller = self.direction_profile.create_ctre_turret_controller()
+            self.direction_motor_configs.slot0 = self.direction_controller[0]
+            self.direction_motor_configs.motion_magic = self.direction_controller[1]
+            self.speed_motor_configs.slot0 = self.speed_controller
         self.feedforward = SimpleMotorFeedforwardMeters(0, 0, 0)
 
     def on_enable(self):
@@ -210,10 +219,10 @@ class SwerveWheel(Sendable):
                 5, lambda: self.speed_motor.configurator.apply(self.speed_motor_configs)
             )
 
-        self.direction_control = controls.PositionVoltage(0)
+        self.direction_control = controls.MotionMagicExpoVoltage(0).with_enable_foc(True)
 
-        self.speed_control = controls.VelocityTorqueCurrentFOC(
-            0
+        self.speed_control = controls.VelocityVoltage(0).with_enable_foc(
+            True
         )  # FOC = Field Oriented Control for better motion
 
     """
@@ -367,15 +376,8 @@ class SwerveWheel(Sendable):
         # This prevents the robot from drifting while the wheel is still rotating
         target_speed = target_speed_rot * target_displacement.cos()
 
-        speed_ff = self.speed_controller.calculate(
-            self.drive_velocity.value,
-            state.speed * (self.drive_gear_ratio / self.meters_per_wheel_rotation),
-        )
-        self.speed_motor.set_control(controls.VoltageOut(speed_ff))
+        self.speed_motor.set_control(self.speed_control.with_velocity(target_speed))
 
-        ff_volts = self.feedforward.calculate(state.angle.radians())
         self.direction_motor.set_control(
-            self.direction_control.with_position(
-                target_angle / math.tau
-            ).with_feed_forward(ff_volts)
+            self.direction_control.with_position(target_angle / math.tau)
         )
