@@ -20,7 +20,7 @@ class ShooterController(StateMachine):
     shooting: bool = will_reset_to(False)
 
     idle_speed_scalar = 0.8
-    kicker_duty = 0.6  # Volts
+    kicker_duty = 8  # Volts
     angle_tolerance = 0.035  # ~2 degrees in radians
     speed_tolerance = 0.05  # 5% relative tolerance
 

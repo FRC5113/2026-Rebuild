@@ -1,6 +1,6 @@
 import math
 from pathlib import Path
-
+import cProfile
 import wpilib
 from phoenix6 import CANBus
 from phoenix6.hardware import TalonFX, TalonFXS
@@ -54,6 +54,7 @@ class MyRobot(LemonRobot):
         can be found in one place. Also, attributes shared by multiple
         components, such as the NavX, need only be created once.
         """
+        wpilib.Preferences.removeAll()
         self.tuning_enabled = True
 
         self.rio_canbus = CANBus.roborio()
@@ -95,12 +96,12 @@ class MyRobot(LemonRobot):
         self.steer_profile = SmartProfile(
             "swerve_steer",
             {
-                "kP": TunerConstants.steer_gains.k_p,
-                "kI": TunerConstants.steer_gains.k_i,
-                "kD": TunerConstants.steer_gains.k_d,
-                "kS": TunerConstants.steer_gains.k_s,
-                "kV": TunerConstants.steer_gains.k_v,
-                "kA": TunerConstants.steer_gains.k_a,
+                "kP": TunerConstants._steer_gains.k_p,
+                "kI": TunerConstants._steer_gains.k_i,
+                "kD": TunerConstants._steer_gains.k_d,
+                "kS": TunerConstants._steer_gains.k_s,
+                "kV": TunerConstants._steer_gains.k_v,
+                "kA": TunerConstants._steer_gains.k_a,
             },
             (not self.low_bandwidth) and self.tuning_enabled,
         )
@@ -109,12 +110,12 @@ class MyRobot(LemonRobot):
         self.drive_profile = SmartProfile(
             "swerve_drive",
             {
-                "kP": TunerConstants.drive_gains.k_p,
-                "kI": TunerConstants.drive_gains.k_i,
-                "kD": TunerConstants.drive_gains.k_d,
-                "kS": TunerConstants.drive_gains.k_s,
-                "kV": TunerConstants.drive_gains.k_v,
-                "kA": TunerConstants.drive_gains.k_a,
+                "kP": TunerConstants._drive_gains.k_p,
+                "kI": TunerConstants._drive_gains.k_i,
+                "kD": TunerConstants._drive_gains.k_d,
+                "kS": TunerConstants._drive_gains.k_s,
+                "kV": TunerConstants._drive_gains.k_v,
+                "kA": TunerConstants._drive_gains.k_a,
             },
             (not self.low_bandwidth) and self.tuning_enabled,
         )
@@ -253,7 +254,19 @@ class MyRobot(LemonRobot):
         self.y_filter = AsymmetricSlewLimiter(
             self.rasing_slew_rate, self.falling_slew_rate
         )
-
+        self.omega_filter = AsymmetricSlewLimiter(
+            self.rasing_slew_rate, self.falling_slew_rate
+        )
+    def disabledInit(self):
+        try:
+            globalProfiler.dump_stats("/home/lvuser/teleop.prof")
+            globalProfiler.disable()
+            print("[DEBUG] Profile files written")
+        except FileNotFoundError:
+            globalProfiler.dump_stats("./temp.prof")
+        except Exception as e:
+            #prob fine
+            pass
     def teleopPeriodic(self):
         # Cache inputs called multiple times
         primary_r2 = self.primary.getR2Axis()
@@ -287,25 +300,30 @@ class MyRobot(LemonRobot):
             if abs(primary_lx) <= 0.0:
                 vy = 0.0
             else:
-                vy = self.y_filter.calculate(
+                vy = self.omega_filter.calculate(
                     self.sammi_curve(primary_lx) * mult * self.top_speed
+                )
+            if abs(primary_rx) <= 0.0:
+                omega = 0.0
+            else:
+                omega = self.y_filter.calculate(
+                    self.sammi_curve(primary_rx) * self.top_omega
                 )
             # Right stick: if deflected, point the robot in that direction;
             # otherwise fall back to normal rotational-velocity control.
             right_stick_moved = abs(primary_rx) > 0.1 or abs(primary_ry) > 0.1
-            if right_stick_moved:
-                self.drive_control.drive_point_joy(-vx, vy, -primary_rx, -primary_ry)
-            else:
-                self.drive_control.drive_manual(
-                    -vx,
-                    vy,
-                    0.0,
-                    not self.primary.getCreateButton(),  # temporary
-                )
+            # if right_stick_moved:
+            #     self.drive_control.drive_point_joy(vx, vy, primary_rx, primary_ry)
+            # else:
+            self.drive_control.drive_manual(
+                vx,
+                vy,
+                omega,
+                not self.primary.getCreateButton(),  # temporary
+            )
 
             if self.primary.getSquareButton():
                 self.swerve_drive.reset_gyro()
-            self.swerve_drive.doTelemetry()
 
         """
         INTAKE
@@ -322,7 +340,8 @@ class MyRobot(LemonRobot):
                 self.shooter_controller.request_shoot()
 
     def disabledPeriodic(self):
-        self.odometry.execute()
+        # self.odometry.execute()
+        pass
 
     @fms_feedback
     def get_voltage(self) -> units.volts:
@@ -341,5 +360,8 @@ class MyRobot(LemonRobot):
         return "No Auto Selected"
 
 
+globalProfiler = cProfile.Profile
+globalProfilerStart = wpilib.Timer.getFPGATimestamp()
 if __name__ == "__main__":
+    globalProfiler.enable()
     wpilib.run(MyRobot)

@@ -37,9 +37,9 @@ class SwerveDrive(Sendable):
     drive_profile: SmartProfile
     tuning_enabled: bool
 
-    telemetry_enabled = SmartPreference(True)
+    telemetry_enabled = SmartPreference(False)
     telemetry_period = SmartPreference(0.1)
-    adv_scope_enabled = SmartPreference(True)
+    adv_scope_enabled = SmartPreference(False)
     adv_scope_period = SmartPreference(0.1)
 
     def __init__(self) -> None:
@@ -206,7 +206,7 @@ class SwerveDrive(Sendable):
             _i = i  # capture for closures
 
             def _vel(idx=_i):
-                return self.swerve_module_states[idx].speed * 2
+                return self.swerve_module_states[idx].speed * 5
 
             def _ang(idx=_i):
                 return self.swerve_module_states[idx].angle.degrees()

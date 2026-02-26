@@ -96,7 +96,7 @@ class Shooter:
 
     def set_voltage(self, volts: units.volts):
         self.manual_control = True
-        self.shooter_voltage = max(0, min(volts, 12))
+        self.shooter_voltage = volts
 
     def set_kicker(self, value: float):
         self.kicker_duty = value  # ha duty thats funny right there
@@ -115,7 +115,7 @@ class Shooter:
 
     def execute(self):
         self.right_kicker_motor.set_control(
-            self.duty_control.with_output(self.kicker_duty)
+            self.voltage_control.with_output(self.kicker_duty)
         )
         self.left_kicker_motor.set_control(self.kicker_follower)
 
