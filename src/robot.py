@@ -1,3 +1,4 @@
+import cProfile
 import math
 from pathlib import Path
 
@@ -27,6 +28,8 @@ from generated.tuner_constants import TunerConstants
 from lemonlib import LemonCamera, LemonInput, LemonRobot, fms_feedback
 from lemonlib.smart import SmartPreference, SmartProfile
 from lemonlib.util import AlertManager, AlertType, AsymmetricSlewLimiter, curve
+
+globalProfiler = cProfile.Profile()
 
 
 class MyRobot(LemonRobot):
@@ -238,10 +241,14 @@ class MyRobot(LemonRobot):
         self.drive_control.engage()
         self.shooter_controller.engage()
 
+    def autonomousInit(self):
+        globalProfiler.enable()
+
     def autonomousPeriodic(self):
         self._display_auto_trajectory()
 
     def teleopInit(self):
+        globalProfiler.enable()
         print("Teleop Init")
         # initialize HIDs here in case they are changed after robot initializes
         self.primary = LemonInput(0)
@@ -339,6 +346,14 @@ class MyRobot(LemonRobot):
     def disabledPeriodic(self):
         # self.odometry.execute()
         pass
+
+    def disabledInit(self):
+        try:
+            globalProfiler.disable()
+            globalProfiler.dump_stats("./temp.prof")
+            print("[DEBUG] Profile written to ./temp.prof")
+        except Exception as e:
+            print(f"[DEBUG] Profile dump failed: {e}")
 
     @fms_feedback
     def get_voltage(self) -> units.volts:
