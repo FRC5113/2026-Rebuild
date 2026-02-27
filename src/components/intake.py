@@ -1,6 +1,6 @@
 import enum
 
-from magicbot import feedback, will_reset_to
+from magicbot import will_reset_to
 from phoenix6 import controls
 from phoenix6.configs import TalonFXConfiguration
 from phoenix6.configs.talon_fx_configs import TalonFXConfiguration
@@ -12,6 +12,7 @@ from phoenix6.signals import (
 from wpilib import DutyCycleEncoder
 from wpimath import units
 
+from lemonlib import fms_feedback
 from lemonlib.smart import SmartProfile
 
 
@@ -42,6 +43,7 @@ class Intake:
     INTAKING = IntakeAngle.INTAKING.value
 
     def setup(self):
+        self._cached_angle = 0.0
         spin_config = TalonFXConfiguration()
         spin_config.motor_output.neutral_mode = NeutralModeValue.BRAKE
         spin_config.current_limits.supply_current_limit = self.spin_amps
@@ -76,15 +78,19 @@ class Intake:
     def get_position(self) -> float:
         return (self.get_left_angle() + self.get_right_angle()) / 2
 
-    @feedback
-    def get_angle(self) -> units.degrees:
-        """Return the angle of the hinge normalized to [-180,180].
-        An angle of 0 refers to the intake in the up/stowed position.
-        """
+    def _compute_angle(self) -> units.degrees:
+        """Read and normalize the hinge angle from encoders."""
         angle = self.get_position() * 360
         if angle > 180:
             angle -= 360
         return angle
+
+    @fms_feedback
+    def get_angle(self) -> units.degrees:
+        """Return the cached angle of the hinge normalized to [-180,180].
+        An angle of 0 refers to the intake in the up/stowed position.
+        """
+        return self._cached_angle
 
     """
     CONTROL METHODS
@@ -97,7 +103,9 @@ class Intake:
         self.arm_angle = angle
 
     def execute(self):
-        angle = self.get_angle()
+        # Cache angle once per cycle for feedback and control use
+        self._cached_angle = self._compute_angle()
+        angle = self._cached_angle
         self.arm_voltage = self.controller.calculate(angle, self.arm_angle)
 
         # making sure we don't try to move the arm past its limits

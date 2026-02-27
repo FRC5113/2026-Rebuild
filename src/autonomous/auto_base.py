@@ -111,6 +111,7 @@ class AutoBase(AutonomousStateMachine):
                 print(f"WARNING: STATE {state} NOT DEFINED")
                 # raise ReferenceError("State {state} not defined")
                 self.next_state("next_step")
+                return
 
             self.next_state(step.split("state:")[1])  # Go to the specified state
         else:
@@ -155,6 +156,7 @@ class AutoBase(AutonomousStateMachine):
             and state_tm > self.current_trajectory.get_total_time() / 2.0
         ):
             self.next_state("next_step")  # Move to next step if trajectory is complete
+            return
         sample = self.current_trajectory.sample_at(
             state_tm, is_red()
         )  # Sample trajectory at current time

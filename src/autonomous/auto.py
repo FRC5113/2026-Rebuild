@@ -31,7 +31,6 @@ class hub_outpost_shoot(AutoBase):
         )
 
 
-
 class hub_shoot(AutoBase):
     MODE_NAME = "Hub>Shoot"
     DEFAULT = True
@@ -43,4 +42,3 @@ class hub_shoot(AutoBase):
                 "state:shoot",
             ]
         )
-

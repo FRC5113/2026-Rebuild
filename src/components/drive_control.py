@@ -1,8 +1,7 @@
 from choreo.trajectory import SwerveSample
 from magicbot import StateMachine, will_reset_to
 from magicbot.state_machine import state
-from phoenix6.hardware import Pigeon2
-from wpilib import DriverStation, RobotBase
+from wpilib import DriverStation
 from wpimath import units
 from wpimath.geometry import Pose2d
 
@@ -16,8 +15,6 @@ class DriveControl(StateMachine):
     """
 
     swerve_drive: SwerveDrive
-
-    pigeon: Pigeon2
 
     # will_reset_to ensures these values reset to their default each robot cycle
     # unless explicitly set, preventing stale commands from persisting
@@ -35,11 +32,10 @@ class DriveControl(StateMachine):
     point_joy_target = will_reset_to(False)
     point_joy_x = will_reset_to(0.0)
     point_joy_y = will_reset_to(0.0)
-    sample: SwerveSample = None  # Trajectory sample for autonomous path following
+    sample = will_reset_to(None)  # Trajectory sample for autonomous path following
 
     def setup(self):
-        if RobotBase.isSimulation():
-            self.pigeon.get_fault_field().wait_for_update(timeout_seconds=5.0)
+        pass
 
     def drive_manual(
         self,
@@ -83,6 +79,32 @@ class DriveControl(StateMachine):
         self.point_joy_x = rightX
         self.point_joy_y = rightY
 
+    def drive_point(
+        self,
+        vx: units.meters_per_second,
+        vy: units.meters_per_second,
+        angle: units.radians,
+    ):
+        """Request drive while facing a field-absolute angle."""
+        self.translationX = vx
+        self.translationY = vy
+        self.point_to_target = True
+        self.point_target = angle
+
+    def drive_point_joy(
+        self,
+        vx: units.meters_per_second,
+        vy: units.meters_per_second,
+        joy_x: float,
+        joy_y: float,
+    ):
+        """Request drive while facing the direction of the right joystick."""
+        self.translationX = vx
+        self.translationY = vy
+        self.point_joy_target = True
+        self.point_joy_x = joy_x
+        self.point_joy_y = joy_y
+
     def drive_auto(self, sample: SwerveSample = None):
         """Provide a trajectory sample for autonomous path following."""
         self.sample = sample
@@ -116,9 +138,10 @@ class DriveControl(StateMachine):
         self.field_relative = False
         if self.go_to_pose:
             self.next_state("going_to_pose")
-        if DriverStation.isAutonomousEnabled():
+        elif DriverStation.isAutonomousEnabled():
             self.next_state("run_auton_routine")
-        self.next_state("free")
+        else:
+            self.next_state("free")
 
     @state
     def free(self):
@@ -136,13 +159,13 @@ class DriveControl(StateMachine):
         # Check for state transitions in priority order
         if DriverStation.isAutonomousEnabled():
             self.next_state("run_auton_routine")
-        if self.go_to_pose:
+        elif self.go_to_pose:
             self.next_state("going_to_pose")
-        if self.point_to_target:
+        elif self.point_to_target:
             self.next_state("point_towards_target")
-        if self.point_joy_target:
+        elif self.point_joy_target:
             self.next_state("point_towards_joy")
-        if self.drive_sysid:
+        elif self.drive_sysid:
             self.next_state("drive_sysid_state")
 
     @state
@@ -152,12 +175,10 @@ class DriveControl(StateMachine):
         Translation comes from manual input; rotation is PID-controlled.
         Exits when target is no longer requested.
         """
-        self.swerve_drive.point_towards(
-            self.point_target,
+        self.swerve_drive.drive_point(
             self.translationX,
             self.translationY,
-            self.field_relative,
-            self.period,
+            self.point_target,
         )
         if not self.point_to_target:
             self.next_state("free")
@@ -169,13 +190,11 @@ class DriveControl(StateMachine):
         Translation comes from manual input; rotation is derived from joystick angle.
         Exits when joystick pointing is no longer requested.
         """
-        self.swerve_drive.point_towards_joy(
-            self.point_joy_x,
-            self.point_joy_y,
+        self.swerve_drive.drive_point_joy(
             self.translationX,
             self.translationY,
-            self.field_relative,
-            self.period,
+            self.point_joy_x,
+            self.point_joy_y,
         )
         if not self.point_joy_target:
             self.next_state("free")
@@ -188,6 +207,7 @@ class DriveControl(StateMachine):
         """
         if not self.drive_sysid:
             self.next_state("free")
+            return
         self.swerve_drive.sysid_drive(self.sysid_volts)
 
     @state
@@ -198,6 +218,7 @@ class DriveControl(StateMachine):
         """
         if not self.go_to_pose:
             self.next_state("free")
+            return
         self.swerve_drive.set_desired_pose(self.desired_pose)
 
     @state
@@ -207,7 +228,16 @@ class DriveControl(StateMachine):
         Drive commands come from auto_base.py which calls drive_auto() with samples.
         Returns to free state when teleop begins.
         """
-        if self.sample is not None:
-            self.swerve_drive.follow_trajectory(self.sample)
         if DriverStation.isTeleop():
             self.next_state("free")
+            return
+        if self.drive_auto_man:
+            self.swerve_drive.drive(
+                self.translationX,
+                self.translationY,
+                self.rotationX,
+                self.field_relative,
+                self.period,
+            )
+        elif self.sample is not None:
+            self.swerve_drive.follow_trajectory(self.sample)

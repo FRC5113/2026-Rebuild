@@ -1,49 +1,21 @@
-import math
+import typing
 
 from phoenix6 import unmanaged
 from pyfrc.physics.core import PhysicsInterface
-from pyfrc.physics.drivetrains import four_motor_swerve_drivetrain
+from wpilib import RobotController
 
-# from photonlibpy.simulation.photonCameraSim import PhotonCameraSim
-# from photonlibpy.simulation.simCameraProperties import SimCameraProperties
-# from photonlibpy.simulation.visionSystemSim import VisionSystemSim
-from wpimath.geometry import Pose2d, Transform2d
+from lemonlib.simulation import LemonCameraSim
 
-from lemonlib.simulation import KrakenSimFOC, LemonCameraSim
-from robot import MyRobot
+if typing.TYPE_CHECKING:
+    from robot import MyRobot
 
 
 class PhysicsEngine:
-    def __init__(self, physics_controller: PhysicsInterface, robot: MyRobot):
-        # Swerve Drive Setup
+    def __init__(self, physics_controller: PhysicsInterface, robot: "MyRobot"):
         self.physics_controller = physics_controller
         self.robot = robot
-        self.pose = Pose2d()
 
-        self.speed_sims = (
-            KrakenSimFOC(robot.front_left_speed_motor, 0.01, 6.75),
-            KrakenSimFOC(robot.front_right_speed_motor, 0.01, 6.75),
-            KrakenSimFOC(robot.rear_left_speed_motor, 0.01, 6.75),
-            KrakenSimFOC(robot.rear_right_speed_motor, 0.01, 6.75),
-        )
-        self.direction_sims = (
-            KrakenSimFOC(robot.front_left_direction_motor, 0.01, 150 / 7),
-            KrakenSimFOC(robot.front_right_direction_motor, 0.01, 150 / 7),
-            KrakenSimFOC(robot.rear_left_direction_motor, 0.01, 150 / 7),
-            KrakenSimFOC(robot.rear_right_direction_motor, 0.01, 150 / 7),
-        )
-
-        self.encoders = (
-            robot.front_left_cancoder,
-            robot.front_right_cancoder,
-            robot.rear_left_cancoder,
-            robot.rear_right_cancoder,
-        )
-        for encoder in self.encoders:
-            encoder.sim_state.add_position(0.25)
-
-        self.robot.pigeon.sim_state.set_supply_voltage(5.0)
-
+        # Vision camera simulations
         # self.vision_sim_front_left = LemonCameraSim(
         #     robot.camera_front_left, robot.field_layout, fov=65.0, fps=60.0
         # )
@@ -58,51 +30,27 @@ class PhysicsEngine:
         )
 
     def update_sim(self, now, tm_diff):
-        # if DriverStation.isEnabled():
+        # Keep Phoenix 6 devices enabled in sim
         unmanaged.feed_enable(100)
 
+        # Handle starting pose resets from SwerveDrive
         if self.robot.swerve_drive.starting_pose is not None:
-            self.physics_controller.move_robot(
-                Transform2d(self.pose.translation(), self.pose.rotation()).inverse()
-            )
-            start = self.robot.swerve_drive.starting_pose
-            self.physics_controller.move_robot(
-                Transform2d(start.translation(), start.rotation())
-            )
             self.robot.swerve_drive.set_starting_pose(None)
 
-        for i in range(4):
-            self.speed_sims[i].update(tm_diff)
-            self.direction_sims[i].update(tm_diff)
-            self.encoders[i].sim_state.add_position(
-                -self.direction_sims[i].motor_sim.getAngularVelocity()
-                / (2 * math.pi)
-                * tm_diff
-            )
-            # print(self.encoders[i].get_absolute_position().value)
-
-        sim_speeds = four_motor_swerve_drivetrain(
-            self.speed_sims[2].sim_state.motor_voltage / 12.0,
-            self.speed_sims[3].sim_state.motor_voltage / 12.0,
-            self.speed_sims[0].sim_state.motor_voltage / 12.0,
-            self.speed_sims[1].sim_state.motor_voltage / 12.0,
-            (self.encoders[2].get_absolute_position().value * -360) % 360,
-            (self.encoders[3].get_absolute_position().value * -360) % 360,
-            (self.encoders[0].get_absolute_position().value * -360) % 360,
-            (self.encoders[1].get_absolute_position().value * -360) % 360,
-            2.25,
-            2.25,
-            15.52,
+        # Phoenix 6 SwerveDrivetrain handles ALL motor, encoder, and Pigeon2
+        # simulation internally — drive motors, steer motors, CANcoders, and
+        # Pigeon2 yaw are all updated in one call.
+        self.robot.swerve_drive._drivetrain.update_sim_state(
+            tm_diff,
+            RobotController.getBatteryVoltage(),
         )
-        # Artificially soften simulated omega
-        sim_speeds.omega_dps *= 0.4
-        # Correct chassis speeds to match initial robot orientation
-        sim_speeds.vx, sim_speeds.vy = sim_speeds.vy, sim_speeds.vx
-        self.pose = self.physics_controller.drive(sim_speeds, tm_diff)
-        # self.robot.camera.set_robot_pose(pose)
-        self.robot.pigeon.sim_state.set_raw_yaw(self.pose.rotation().degrees())
 
-        # self.vision_sim_front_left.update(self.pose)
-        # self.vision_sim_front_right.update(self.pose)
-        self.vision_sim_back_left.update(self.pose)
-        self.vision_sim_back_right.update(self.pose)
+        # Sync pyfrc field pose from the drivetrain's odometry
+        pose = self.robot.swerve_drive.get_estimated_pose()
+        self.physics_controller.field.setRobotPose(pose)
+
+        # Update vision camera simulations
+        # self.vision_sim_front_left.update(pose)
+        # self.vision_sim_front_right.update(pose)
+        self.vision_sim_back_left.update(pose)
+        self.vision_sim_back_right.update(pose)
