@@ -49,7 +49,7 @@ class MyRobot(LemonRobot):
 
     rasing_slew_rate: SmartPreference = SmartPreference(8.0)
     falling_slew_rate: SmartPreference = SmartPreference(20.0)
-
+    firstRun = True
     def createObjects(self):
         """This method is where all attributes to be injected are
         initialized. This is done here rather that inside the components
@@ -341,15 +341,17 @@ class MyRobot(LemonRobot):
         pass
 
     def disabledInit(self):
-        try:
-            globalProfiler.dump_stats("/home/lvuser/teleop.prof")
-            globalProfiler.disable()
-            print("[DEBUG] Profile files written")
-        except FileNotFoundError:
-            globalProfiler.dump_stats("./temp.prof")
-        except Exception as e:
-            print(f"[DEBUG] Profile dump failed: {e}")
-
+        if not self.firstRun:
+            try:
+                globalProfiler.dump_stats("/home/lvuser/teleop.prof")
+                globalProfiler.disable()
+                print("[DEBUG] Profile files written")
+            except FileNotFoundError:
+                globalProfiler.dump_stats("./temp.prof")
+            except Exception as e:
+                print(f"[DEBUG] Profile dump failed: {e}")
+        else:
+            self.firstRun = False
     @fms_feedback
     def get_voltage(self) -> units.volts:
         return RobotController.getBatteryVoltage()

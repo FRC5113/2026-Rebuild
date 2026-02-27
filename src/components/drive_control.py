@@ -154,7 +154,6 @@ class DriveControl(StateMachine):
             self.translationY,
             self.rotationX,
             self.field_relative,
-            self.period,
         )
         # Check for state transitions in priority order
         if DriverStation.isAutonomousEnabled():
@@ -237,7 +236,6 @@ class DriveControl(StateMachine):
                 self.translationY,
                 self.rotationX,
                 self.field_relative,
-                self.period,
             )
         elif self.sample is not None:
             self.swerve_drive.follow_trajectory(self.sample)
