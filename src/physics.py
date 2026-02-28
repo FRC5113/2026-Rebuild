@@ -40,7 +40,7 @@ class PhysicsEngine:
         # Phoenix 6 SwerveDrivetrain handles ALL motor, encoder, and Pigeon2
         # simulation internally — drive motors, steer motors, CANcoders, and
         # Pigeon2 yaw are all updated in one call.
-        self.robot.swerve_drive._drivetrain.update_sim_state(
+        self.robot.swerve_drive.drivetrain.update_sim_state(
             tm_diff,
             RobotController.getBatteryVoltage(),
         )

@@ -1,10 +1,16 @@
 import cProfile
+
+# Patch out the expensive traceback in Phoenix6 error reports (see _report_status_no_traceback).
+import ctypes as _ctypes
 import math
 from pathlib import Path
 
+import phoenix6.hardware.parent_device as _phx_parent_device
 import wpilib
 from phoenix6 import CANBus
 from phoenix6.hardware import TalonFX, TalonFXS
+from phoenix6.phoenix_native import Native as _PhxNative
+from photonlibpy.photonCamera import setVersionCheckEnabled as _photon_set_version_check
 from robotpy_apriltag import AprilTagFieldLayout
 from wpilib import (
     DigitalInput,
@@ -29,6 +35,27 @@ from lemonlib import LemonCamera, LemonInput, LemonRobot, fms_feedback
 from lemonlib.smart import SmartPreference, SmartProfile
 from lemonlib.util import AlertManager, AlertType, AsymmetricSlewLimiter, curve
 
+
+def _report_status_no_traceback(status, location: str) -> None:
+    # Same as phoenix6.error_reporting.report_status_code but skips
+    # traceback.format_stack(). The stock version calls format_stack() on every
+    # set_control() call while firmware hasn't been verified yet, which walks
+    # every Python frame and hits lstat() hundreds of times (~35 ms/call).
+    # Errors still reach the Driver Station; we just drop the Python callstack.
+    # TODO: remove once motor firmware is updated and report_if_too_old passes.
+    _PhxNative.instance().c_ctre_phoenix_report_error(
+        status.is_error(),
+        status.value,
+        0,
+        _ctypes.c_char_p(b""),
+        _ctypes.c_char_p(bytes(location, encoding="utf-8")),
+        _ctypes.c_char_p(b""),  # stack trace — leave empty to skip the overhead
+    )
+
+
+# Swap out the binding before any hardware objects are created.
+_phx_parent_device.report_status_code = _report_status_no_traceback
+
 globalProfiler = cProfile.Profile()
 
 
@@ -50,6 +77,7 @@ class MyRobot(LemonRobot):
     rasing_slew_rate: SmartPreference = SmartPreference(8.0)
     falling_slew_rate: SmartPreference = SmartPreference(20.0)
     firstRun = True
+
     def createObjects(self):
         """This method is where all attributes to be injected are
         initialized. This is done here rather that inside the components
@@ -205,6 +233,13 @@ class MyRobot(LemonRobot):
         # self.camera_front_right = LemonCamera(
         #     "Front_Right", self.rtc_front_right, self.field_layout
         # )
+
+        # _versionCheck() fires reportWarning(stackTrace=True) when the camera
+        # name or photonlibpy version doesn't match the coprocessor, which was
+        # costing ~2.9 s per profile run. Disable until versions are aligned.
+        # TODO: remove once PhotonVision firmware and photonlibpy match.
+        _photon_set_version_check(False)
+
         self.camera_back_left = LemonCamera(
             "Back_Left", self.rtc_back_left, self.field_layout
         )
@@ -242,7 +277,8 @@ class MyRobot(LemonRobot):
         self.shooter_controller.engage()
 
     def autonomousInit(self):
-        globalProfiler.enable()
+        # globalProfiler.enable()
+        pass
 
     def autonomousPeriodic(self):
         self._display_auto_trajectory()
@@ -352,6 +388,7 @@ class MyRobot(LemonRobot):
                 print(f"[DEBUG] Profile dump failed: {e}")
         else:
             self.firstRun = False
+
     @fms_feedback
     def get_voltage(self) -> units.volts:
         return RobotController.getBatteryVoltage()
