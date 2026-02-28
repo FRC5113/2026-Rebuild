@@ -23,7 +23,7 @@ from lemonlib.smart import SmartController, SmartPreference, SmartProfile
 from lemonlib.util import Alert, AlertType
 
 
-class SwerveDrive(Sendable):
+class SwerveDrive:#(Sendable):
     """Swerve drive using the Phoenix 6 Swerve API (SwerveDrivetrain).
 
     The underlying ``phoenix6.swerve.SwerveDrivetrain`` owns the hardware,
@@ -46,7 +46,7 @@ class SwerveDrive(Sendable):
     stopped = will_reset_to(True)
 
     def __init__(self) -> None:
-        Sendable.__init__(self)
+        # Sendable.__init__(self)
         # Cached drivetrain state — updated once per execute() cycle.
         # Avoids repeated get_state() calls (each copies C++ > Python objects).
         self.cached_pose = Pose2d()
@@ -123,7 +123,7 @@ class SwerveDrive(Sendable):
         )
 
         self.still_states = self.swerve_module_states
-        SmartDashboard.putData("Swerve Drive", self)
+        # SmartDashboard.putData("Swerve Drive", self)
 
         self.period = 0.02
         self.desired_pose = Pose2d()
@@ -319,7 +319,7 @@ class SwerveDrive(Sendable):
         joystick.  Uses OPERATOR_PERSPECTIVE so 'push forward' = face away
         from the driver."""
         self.stopped = False
-        angle = math.atan2(joy_y, joy_x)
+        angle = math.atan2(joy_y, joy_x) + math.pi
         self.pending_request = (
             self.facing_angle_req.with_velocity_x(vx)
             .with_velocity_y(vy)
@@ -347,7 +347,7 @@ class SwerveDrive(Sendable):
             self.pending_request = self.apply_speeds_req.with_speeds(speeds)
 
     def reset_gyro(self) -> None:
-        self.drivetrain.seed_field_centric()
+        self.drivetrain.seed_field_centric(Rotation2d().fromDegrees(180))
         self.pigeon_alert.enable()
 
     def addVisionPoseEstimate(self, pose: Pose2d, timestamp: units.seconds):

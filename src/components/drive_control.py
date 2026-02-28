@@ -189,6 +189,8 @@ class DriveControl(StateMachine):
         Translation comes from manual input; rotation is derived from joystick angle.
         Exits when joystick pointing is no longer requested.
         """
+        if self.point_to_target:
+            self.next_state("point_towards_target")
         self.swerve_drive.drive_point_joy(
             self.translationX,
             self.translationY,

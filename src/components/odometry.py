@@ -34,7 +34,7 @@ class Odometry:
             self.camera_back_right.camera_to_bot,
         )
 
-        SmartDashboard.putData("Estimated Field", self.estimated_field)
+        # SmartDashboard.putData("Estimated Field", self.estimated_field)
 
     def execute(self):
         # self._process_latest_result(

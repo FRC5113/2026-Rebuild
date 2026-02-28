@@ -17,8 +17,8 @@ from lemonlib.smart import SmartProfile
 
 
 class IntakeAngle(enum.Enum):
-    UP = 5.0
-    INTAKING = 85.0
+    UP = -119.0
+    INTAKING = 0.0
 
 
 class Intake:
@@ -69,12 +69,15 @@ class Intake:
     INFORMATIONAL METHODS
     """
 
+    @fms_feedback
     def get_left_angle(self) -> units.degrees:
         return self.left_encoder.get()
 
+    @fms_feedback
     def get_right_angle(self) -> units.degrees:
-        return self.right_encoder.get()
+        return 1 - (self.right_encoder.get() - 0.25)
 
+    @fms_feedback
     def get_position(self) -> float:
         return (self.get_left_angle() + self.get_right_angle()) / 2
 
@@ -99,6 +102,9 @@ class Intake:
     def set_voltage(self, voltage: units.volts):
         self.spin_voltage = voltage
 
+    def set_arm_voltage(self, volts):
+        self.arm_voltage = volts
+
     def set_arm_angle(self, angle: units.degrees):
         self.arm_angle = angle
 
@@ -106,13 +112,13 @@ class Intake:
         # Cache angle once per cycle for feedback and control use
         self._cached_angle = self._compute_angle()
         angle = self._cached_angle
-        self.arm_voltage = self.controller.calculate(angle, self.arm_angle)
+        # self.arm_voltage = self.controller.calculate(angle, self.arm_angle)
 
         # making sure we don't try to move the arm past its limits
-        if angle < self.INTAKEUP:
-            self.arm_voltage = max(self.arm_voltage, 0)
-        elif angle > self.INTAKING:
-            self.arm_voltage = min(self.arm_voltage, 0)
+        # if angle < self.INTAKEUP:
+        #     self.arm_voltage = max(self.arm_voltage, 0)
+        # elif angle > self.INTAKING:
+        #     self.arm_voltage = min(self.arm_voltage, 0)
 
         self.right_motor.set_control(self.arm_control.with_output(self.arm_voltage))
         self.left_motor.set_control(self.arm_follower)

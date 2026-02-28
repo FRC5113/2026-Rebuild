@@ -26,13 +26,13 @@ class ShooterController(StateMachine):
 
     def setup(self):
         # Meters
-        self.distance_lookup = [1.0, 2.0, 3.0, 4.0, 5.0]  # TODO Tune these values
+        self.distance_lookup = [4.0]  # TODO Tune these values
 
         # RPS
-        self.speed_lookup = [22.0, 33.0, 44.0, 55.0, 66.0]  # TODO Tune these values
+        self.speed_lookup = [53.0]  # TODO Tune these values
 
         # Seconds — measured flight times at each distance
-        self.time_lookup = [0.15, 0.25, 0.35, 0.45, 0.55]  # TODO Tune these values
+        self.time_lookup = [0.45]  # TODO Tune these values
 
         self.target_rps = 0.0
         self.target_angle = 0.0

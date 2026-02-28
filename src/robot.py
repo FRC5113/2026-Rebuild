@@ -1,4 +1,4 @@
-import cProfile
+# import cProfile
 
 # Patch out the expensive traceback in Phoenix6 error reports (see _report_status_no_traceback).
 import ctypes as _ctypes
@@ -56,7 +56,7 @@ def _report_status_no_traceback(status, location: str) -> None:
 # Swap out the binding before any hardware objects are created.
 _phx_parent_device.report_status_code = _report_status_no_traceback
 
-globalProfiler = cProfile.Profile()
+# globalProfiler = cProfile.Profile()
 
 
 class MyRobot(LemonRobot):
@@ -77,6 +77,8 @@ class MyRobot(LemonRobot):
     rasing_slew_rate: SmartPreference = SmartPreference(8.0)
     falling_slew_rate: SmartPreference = SmartPreference(20.0)
     firstRun = True
+
+    flywheel_speed = SmartPreference(30.0)
 
     def createObjects(self):
         """This method is where all attributes to be injected are
@@ -274,7 +276,7 @@ class MyRobot(LemonRobot):
 
     def enabledperiodic(self):
         self.drive_control.engage()
-        self.shooter_controller.engage()
+        # self.shooter_controller.engage()
 
     def autonomousInit(self):
         # globalProfiler.enable()
@@ -284,8 +286,7 @@ class MyRobot(LemonRobot):
         self._display_auto_trajectory()
 
     def teleopInit(self):
-        globalProfiler.enable()
-        print("Teleop Init")
+        # globalProfiler.enable()
         # initialize HIDs here in case they are changed after robot initializes
         self.primary = LemonInput(0)
         self.secondary = LemonInput(1)
@@ -337,7 +338,7 @@ class MyRobot(LemonRobot):
                     self.sammi_curve(primary_lx) * mult * self.top_speed
                 )
 
-            if self.primary.getLeftBumper():
+            if self.primary.getLeftBumper() or True:
                 if abs(primary_rx) <= 0.0:
                     omega = 0.0
                 else:
@@ -365,29 +366,47 @@ class MyRobot(LemonRobot):
             if self.secondary.getLeftBumper():
                 self.intake.set_voltage(6.0)
 
+            if self.secondary.getBButton():
+                self.intake.set_arm_voltage(-4.0)
+
+            if self.secondary.getXButton():
+                self.intake.set_arm_voltage(4.0)
+
         """
         SHOOTER
         """
         with self.consumeExceptions():
             if self.secondary.getRightTriggerAxis() >= 0.8:
-                self.shooter_controller.request_shoot()
+                # self.shooter_controller.request_shoot()
+                self.shooter.set_kicker(8)
+
+            if self.secondary.getAButton():
+                self.shooter.set_velocity(self.flywheel_speed)
+            
+            if self.secondary.getYButton():
+                self.shooter.set_velocity(15.0)
+
+            if self.secondary.getStartButton():
+                self.shooter.set_voltage(-6)
+                self.shooter.set_kicker(-10)
 
     def disabledPeriodic(self):
         # self.odometry.execute()
         pass
 
     def disabledInit(self):
-        if not self.firstRun:
-            try:
-                globalProfiler.dump_stats("/home/lvuser/teleop.prof")
-                globalProfiler.disable()
-                print("[DEBUG] Profile files written")
-            except FileNotFoundError:
-                globalProfiler.dump_stats("./temp.prof")
-            except Exception as e:
-                print(f"[DEBUG] Profile dump failed: {e}")
-        else:
-            self.firstRun = False
+        # if not self.firstRun:
+        #     try:
+        #         globalProfiler.dump_stats("/home/lvuser/teleop.prof")
+        #         globalProfiler.disable()
+        #         print("[DEBUG] Profile files written")
+        #     except FileNotFoundError:
+        #         globalProfiler.dump_stats("./temp.prof")
+        #     except Exception as e:
+        #         print(f"[DEBUG] Profile dump failed: {e}")
+        # else:
+        #     self.firstRun = False
+        pass
 
     @fms_feedback
     def get_voltage(self) -> units.volts:
